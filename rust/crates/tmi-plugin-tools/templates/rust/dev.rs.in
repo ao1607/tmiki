@@ -1,0 +1,10 @@
+//! {{id}} as a development plugin: the same code as the component, run as an
+//! ordinary program that speaks tmi's interface on stdin and stdout.
+//!
+//!     cargo build --features dev        (tmiki plugin build runs it)
+//!     tmiki plugin dev target/debug/{{id}}-dev -- add x.{{ext}}
+//!     tmiki plugin test --native
+
+fn main() {
+    tmi_plugin_sdk::dev_main::<{{crate_name}}::Plugin>()
+}

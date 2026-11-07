@@ -1,0 +1,74 @@
+# {{format_name}} file format — implementation notes
+
+`tmiki plugin new` wrote this file for the plugin `{{id}}`. It describes the
+made-up "tmi sample" format that the template reads, in the shape the notes
+of a real format take (research/mdp2-format.md in the tmi repository).
+Replace every section with what you find about your format, from which
+sample files, and keep 9. "Open items" honest: PLUGIN_SPEC.md 8 asks for it.
+
+All integer fields are little-endian.
+
+## 1. Where the samples come from
+
+| file | made by | what it shows |
+|---|---|---|
+| `tests/corpus/sample.{{ext}}` | `tmiki plugin new` | three layers: an opaque background, an offset half-opaque layer, a hidden layer |
+
+## 2. File header
+
+```
+offset  size  field
+────────────────────────────────────────────
+0x00    8B    magic "TMISMPL1"
+0x08    u32   canvas width
+0x0C    u32   canvas height
+0x10    u32   layer count
+0x14    ...   layer records, bottom to top
+```
+
+## 3. Layer record
+
+```
+size  field
+────────────────────────────────────────────
+u16   name length N
+N B   name, UTF-8
+i32   x (left edge on the canvas)
+i32   y (top edge on the canvas)
+u8    flags: bit 0 = visible
+u8    opacity, 0..255
+u32   PNG length M
+M B   the layer's pixels as a PNG (RGBA or any PNG the host reads)
+```
+
+The file ends right after the last record.
+
+## 4. Layer tree
+
+Flat: every layer is a raster layer at the top level.
+
+## 5. Blend modes
+
+None: every layer is drawn `normal`.
+
+## 6. Composite
+
+The file has no composite of its own; the plugin asks for
+`render(generic-v1)`.
+
+## 7. Write-back
+
+A layer's PNG can be replaced: its record is written again with the new
+PNG's length, every other byte is copied as it was.
+
+## 8. Mapping to tmi:format
+
+| file | WIT |
+|---|---|
+| layer record | `layer` (kind `raster`, `ready` bitmap: `image(png)` of the PNG's span) |
+| record index | `stable-id` `layer-<index>` |
+| opacity byte | `opacity` = byte / 255; `semantic` `opacity_byte` |
+
+## 9. Open items
+
+- (none for the sample format)

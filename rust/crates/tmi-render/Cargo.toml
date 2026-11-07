@@ -1,0 +1,12 @@
+[package]
+name = "tmi-render"
+description = "Layer compositing (blend modes, regrade, op runs)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rayon.workspace = true
+tmi-pillow.workspace = true
+tmi-numpy.workspace = true
+sha2 = "0.11.0"
+tmi-clip.workspace = true

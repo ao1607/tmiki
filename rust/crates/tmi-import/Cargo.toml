@@ -1,0 +1,21 @@
+[package]
+name = "tmi-import"
+description = "tmi's import pipeline (tmi/importers.py): CLIP, MDP2 and PNG / JPEG into layer records, layer blobs, the composite and its thumbnail"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rayon.workspace = true
+flate2.workspace = true
+tmi-store.workspace = true
+tmi-clip.workspace = true
+tmi-render.workspace = true
+tmi-image.workspace = true
+tmi-pillow.workspace = true
+tmi-codec.workspace = true
+# The workspace's patched libsqlite3-sys (SQLite 3.50.4), as tmi-clip.
+rusqlite = { version = "0.40.2", features = ["bundled", "serialize", "backup"] }
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_SystemInformation"] }

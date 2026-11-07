@@ -1,0 +1,257 @@
+//! {{id}}: a tmi format plugin (tmi:format@{{abi}}, world `{{world}}`).
+//!
+//! This is the template `tmiki plugin new` writes. It reads the made-up
+//! "tmi sample" format of `tests/corpus/sample.{{ext}}` (described in
+//! SPEC.md), so that `tmiki plugin build` and `tmiki plugin test` pass from the
+//! start. Replace `parse`, `probe` and `read_structure` with your format;
+//! PLUGIN_SPEC.md is the full contract.
+//!
+//! It is written on `tmi-plugin-sdk` (`sdk/`, a copy `tmiki plugin new`
+//! wrote: do not edit it), so the same code is two things:
+//!
+//! - the component (`cargo build --release --target wasm32-wasip2`, which
+//!   `tmiki plugin build` runs): `export_plugin!` below;
+//! - a development plugin, an ordinary program speaking tmi's interface on
+//!   stdin and stdout (`src/bin/dev.rs`, `cargo build --features dev`,
+//!   which `tmiki plugin build` also runs): `tmiki plugin dev target/debug/{{id}}-dev
+//!   -- add x.{{ext}}` tries it in a repository, `tmiki plugin test --native`
+//!   compares it with the component, and a native debugger and `eprintln!`
+//!   work in it (never print to stdout: it is the pipe to tmi).
+
+use tmi_plugin_sdk::{self as t, SourceFile};
+{{#writer}}
+use tmi_plugin_sdk::edit;
+{{/writer}}
+
+pub struct Plugin;
+
+tmi_plugin_sdk::export_plugin!(Plugin);
+
+/// The first bytes of a sample file.
+const MAGIC: &[u8; 8] = b"TMISMPL1";
+/// Layers a file may have (the host allows 100,000).
+const MAX_LAYERS: u32 = 10_000;
+
+/// One layer of a sample file: its record's place in the file and what it holds.
+{{^writer}}
+#[allow(dead_code)] // start and end: what a writer copies (tmiki plugin new --writer)
+{{/writer}}
+struct Record {
+    /// The record's first byte and the byte after it.
+    start: u64,
+    end: u64,
+    name: String,
+    x: i32,
+    y: i32,
+    visible: bool,
+    opacity: u8,
+    /// The layer's PNG.
+    png: t::Span,
+}
+
+{{^writer}}
+#[allow(dead_code)] // header_len: what a writer copies
+{{/writer}}
+struct Sample {
+    width: u32,
+    height: u32,
+    /// The header's length (the records follow it).
+    header_len: u64,
+    /// Bottom to top.
+    records: Vec<Record>,
+}
+
+fn corrupt(message: impl Into<String>) -> t::ReadError {
+    t::ReadError::Corrupt(message.into())
+}
+
+/// Reads the file front to back (only the headers: the PNGs are left for
+/// the host, which takes them out of the file by their spans).
+struct Cursor<'a> {
+    src: &'a SourceFile<'a>,
+    pos: u64,
+    size: u64,
+}
+
+impl Cursor<'_> {
+    fn take(&mut self, n: u32) -> Result<Vec<u8>, t::ReadError> {
+        if self.pos + u64::from(n) > self.size {
+            return Err(corrupt(format!("the file ends at byte {} inside a record", self.size)));
+        }
+        let bytes = self.src.read(self.pos, n);
+        self.pos += u64::from(n);
+        Ok(bytes)
+    }
+
+    fn u32(&mut self) -> Result<u32, t::ReadError> {
+        Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+    }
+
+    fn i32(&mut self) -> Result<i32, t::ReadError> {
+        Ok(i32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+    }
+
+    fn u16(&mut self) -> Result<u16, t::ReadError> {
+        Ok(u16::from_le_bytes(self.take(2)?.try_into().unwrap()))
+    }
+
+    fn u8(&mut self) -> Result<u8, t::ReadError> {
+        Ok(self.take(1)?[0])
+    }
+}
+
+fn parse(src: &SourceFile) -> Result<Sample, t::ReadError> {
+    let size = src.size();
+    let mut c = Cursor { src, pos: 0, size };
+    if size < 20 || c.take(8)? != MAGIC {
+        return Err(t::ReadError::NotThisFormat("no TMISMPL1 header".into()));
+    }
+    let width = c.u32()?;
+    let height = c.u32()?;
+    let count = c.u32()?;
+    if count > MAX_LAYERS {
+        return Err(t::ReadError::TooLarge(format!("{count} layers (this plugin reads at most {MAX_LAYERS})")));
+    }
+    let header_len = c.pos;
+    let mut records = Vec::new();
+    for i in 0..count {
+        let start = c.pos;
+        let name_len = c.u16()?;
+        let name = String::from_utf8(c.take(u32::from(name_len))?).map_err(|_| corrupt(format!("layer {i}: the name is not UTF-8")))?;
+        let x = c.i32()?;
+        let y = c.i32()?;
+        let flags = c.u8()?;
+        let opacity = c.u8()?;
+        let png_len = c.u32()?;
+        let png = t::Span { offset: c.pos, len: u64::from(png_len) };
+        if c.pos + u64::from(png_len) > size {
+            return Err(corrupt(format!("layer {i}: its PNG runs past the end of the file")));
+        }
+        c.pos += u64::from(png_len);
+        records.push(Record { start, end: c.pos, name, x, y, visible: flags & 1 != 0, opacity, png });
+    }
+    if c.pos != size {
+        return Err(corrupt(format!("{} bytes after the last layer", size - c.pos)));
+    }
+    Ok(Sample { width, height, header_len, records })
+}
+
+/// The stable id of layer `i`: unique in the file. The sample format keeps
+/// no ids, so the place stands in; a format that keeps an id per layer
+/// should use it (PLUGIN_SPEC.md: stable-id).
+fn stable_id(i: usize) -> String {
+    format!("layer-{i}")
+}
+
+fn layer(i: usize, r: &Record) -> t::Layer {
+    let image = t::EncodedImage { data: t::Bytes::Span(r.png), pre: vec![], codec: t::ImageCodec::Png, frame: 0 };
+    let bitmap = t::Bitmap { size: None, source: t::PixelSource::Image(t::PlacedImage { x: 0, y: 0, image }) };
+    t::Layer {
+        id: stable_id(i),
+        stable_id: stable_id(i),
+        parent: None,
+        name: r.name.clone(),
+        kind: t::LayerKind::Raster,
+        visible: r.visible,
+        opacity: f64::from(r.opacity) / 255.0,
+        blend: t::BlendMode::Normal,
+        clip_to_below: false,
+        offset_x: i64::from(r.x),
+        offset_y: i64::from(r.y),
+        pixels: t::LayerPixels::Ready(bitmap),
+        meta: vec![],
+        semantic: vec![t::MetaEntry { key: "opacity_byte".into(), value: t::MetaValue::Integer(i64::from(r.opacity)) }],
+        write: {{write_capability}},
+    }
+}
+
+impl t::Plugin for Plugin {
+    fn info() -> t::PluginInfo {
+        t::PluginInfo {
+            id: "{{id}}".into(),
+            version: "0.1.0".into(),
+            formats: vec![t::FormatInfo { name: "{{format_name}}".into(), extensions: vec![".{{ext}}".into()], mime: None }],
+            probe_bytes: MAGIC.len() as u32,
+            can_write: {{can_write}},
+        }
+    }
+
+    fn probe(_name: &str, head: &[u8], _size: u64) -> t::Confidence {
+        if head.starts_with(MAGIC) {
+            t::Confidence::Yes
+        } else {
+            t::Confidence::No
+        }
+    }
+
+    fn read_structure(src: &SourceFile) -> Result<t::Structure, t::ReadError> {
+        let s = parse(src)?;
+        Ok(t::Structure {
+            format: "{{format_name}}".into(),
+            canvas: t::Canvas { width: s.width, height: s.height, dpi: None, profile: t::ColorProfile::None },
+            layers: s.records.iter().enumerate().map(|(i, r)| layer(i, r)).collect(),
+            composite: t::Composite::Render(t::Compositor::GenericV1),
+            file_meta: vec![],
+            context: vec![],
+            warnings: vec![],
+        })
+    }
+
+    // read_layer (a layer read_structure left deferred) and decode_chunk (a
+    // codec of the plugin's own): the trait's defaults answer unsupported
+{{#writer}}
+
+    /// Writes layers back: every record is copied from the file as it is,
+    /// but an edited layer's, whose header is written again (with the new
+    /// PNG's length) and followed by the PNG the host encoded. The host joins
+    /// the pieces, reads the result again with this plugin and checks that
+    /// only the edited layers changed.
+    fn write_layers(src: &SourceFile, edits: Vec<t::LayerEdit>, pixels: Vec<edit::Pixels>) -> Result<t::WritePlan, t::WriteError> {
+        write_layers(src, edits, pixels)
+    }
+{{/writer}}
+}
+{{#writer}}
+
+fn write_error(e: t::ReadError) -> t::WriteError {
+    match e {
+        t::ReadError::NotThisFormat(m) | t::ReadError::Corrupt(m) | t::ReadError::TooLarge(m) => t::WriteError::Corrupt(m),
+        t::ReadError::Unsupported(m) => t::WriteError::Unsupported(m),
+    }
+}
+
+fn write_layers(src: &SourceFile, edits: Vec<t::LayerEdit>, pixels: Vec<edit::Pixels>) -> Result<t::WritePlan, t::WriteError> {
+    let s = parse(src).map_err(write_error)?;
+    let mut pixels: Vec<Option<edit::Pixels>> = pixels.into_iter().map(Some).collect();
+    let mut new_png: Vec<Option<edit::Blob>> = (0..s.records.len()).map(|_| None).collect();
+    for e in edits {
+        if !e.props.is_empty() {
+            return Err(t::WriteError::Unsupported("this plugin writes layer pixels only, not properties".into()));
+        }
+        let i = (0..s.records.len()).find(|&i| stable_id(i) == e.stable_id).ok_or_else(|| t::WriteError::Invalid(format!("no layer {}", e.stable_id)))?;
+        let k = e.new_pixels.ok_or_else(|| t::WriteError::Invalid(format!("{}: no new pixels", e.stable_id)))? as usize;
+        let px = pixels.get_mut(k).and_then(Option::take).ok_or_else(|| t::WriteError::Invalid(format!("{}: pixels {k} is not given", e.stable_id)))?;
+        new_png[i] = Some(edit::encode_image(&px, &t::ImageEncoding::PngV1).map_err(t::WriteError::Invalid)?);
+    }
+    let mut pieces = vec![t::Piece::Source(t::Span { offset: 0, len: s.header_len })];
+    for (r, png) in s.records.iter().zip(new_png) {
+        match png {
+            None => pieces.push(t::Piece::Source(t::Span { offset: r.start, len: r.end - r.start })),
+            Some(blob) => {
+                let len = u32::try_from(blob.len()).map_err(|_| t::WriteError::Unsupported(format!("layer {}: the PNG is over 4 GiB", r.name)))?;
+                let mut head = Vec::new();
+                head.extend_from_slice(&(r.name.len() as u16).to_le_bytes());
+                head.extend_from_slice(r.name.as_bytes());
+                head.extend_from_slice(&r.x.to_le_bytes());
+                head.extend_from_slice(&r.y.to_le_bytes());
+                head.push(u8::from(r.visible));
+                head.push(r.opacity);
+                head.extend_from_slice(&len.to_le_bytes());
+                pieces.push(t::Piece::Bytes(head));
+                pieces.push(t::Piece::Blob(blob));
+            }
+        }
+    }
+    Ok(t::WritePlan { pieces, warnings: vec![] })
+}
+{{/writer}}

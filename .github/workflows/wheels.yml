@@ -1,0 +1,251 @@
+# Build the pure-Python tmi wheel/sdist and the tmi-accel native wheels, smoke
+# test them together, and attach everything to a GitHub Release on v* tags.
+# Nothing here publishes to PyPI: tmi is not published there (decided
+# 2026-10-13; it is to ship as platform executables, like Git, and the Python
+# part is to be retired), and the names tmi / tmi-accel / tmi-cli on PyPI are
+# other people's or nobody's.
+#
+# tmi needs tmi-accel (its native core; RUST_MIGRATION.md 1e) but does not
+# name it as a dependency, nor tmi-cli (issue #33): a dependency on a name tmi
+# does not own on PyPI would let pip install whatever a third party uploads
+# under it. The release's wheels are installed side by side instead (the smoke
+# test does it from dist/ with --no-index), and tmi reports a missing or
+# outdated tmi_accel itself (AccelUnavailableError). The "tmi wheel" job
+# checks that the wheel's metadata names neither. The reference package
+# tmiref/ (tests and tools only) must not be in the tmi wheel.
+#
+# tmi-accel is built against the stable ABI (pyo3 "abi3-py310"), so one wheel
+# per platform covers every CPython >= 3.10.
+#
+# tmi-cli is the `tmi` executable (rust/crates/tmi-cli, maturin "bin" bindings;
+# RUST_MIGRATION.md 3a): a py3-none-<platform> wheel. tmi names its own
+# console script `tmiki-py`; the executable serves most commands itself (add,
+# commit, log, status, diff, merge, transport, ...) and runs `python -m tmi`
+# (the python next to it) for the rest. The smoke test checks both paths and
+# `tmiki-py`.
+name: wheels
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "tmi/**"
+      - "rust/**"
+      - ".github/workflows/wheels.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tmi:
+    name: tmi wheel + sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build
+      - run: python -m build --outdir dist .
+      - name: The wheel holds tmi only (not the reference package tmiref)
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/tmi-*.whl")[0]).namelist()
+          assert any(n.startswith("tmi/") for n in names), names
+          assert not any(n.startswith("tmiref/") for n in names), [n for n in names if n.startswith("tmiref/")]
+          EOF
+      - name: The wheel depends on nothing named like tmi's own parts (issue #33)
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          wheel = zipfile.ZipFile(glob.glob("dist/tmi-*.whl")[0])
+          meta = wheel.read(next(n for n in wheel.namelist() if n.endswith(".dist-info/METADATA"))).decode()
+          requires = [line for line in meta.splitlines() if line.startswith("Requires-Dist:")]
+          bad = [line for line in requires if "tmi" in line.split(":", 1)[1].lower()]
+          assert not bad, bad
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-tmi
+          path: dist/*
+          if-no-files-found: error
+
+  accel:
+    name: tmi-accel ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64
+            manylinux: "2014"
+          - platform: windows-x64
+            runner: windows-latest
+            target: x64
+            manylinux: ""
+          - platform: macos-universal2
+            runner: macos-14
+            target: universal2-apple-darwin
+            manylinux: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust/tmi-accel
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-accel-${{ matrix.platform }}
+          path: rust/tmi-accel/dist/*.whl
+          if-no-files-found: error
+
+  cli:
+    name: tmi-cli ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64
+            manylinux: "2014"
+          - platform: windows-x64
+            runner: windows-latest
+            target: x64
+            manylinux: ""
+          - platform: macos-universal2
+            runner: macos-14
+            target: universal2-apple-darwin
+            manylinux: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust/crates/tmi-cli
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-cli-${{ matrix.platform }}
+          path: rust/crates/tmi-cli/dist/*.whl
+          if-no-files-found: error
+
+  accel-sdist:
+    name: tmi-accel sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust/tmi-accel
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-accel-sdist
+          path: rust/tmi-accel/dist/*.tar.gz
+          if-no-files-found: error
+
+  smoke:
+    name: smoke ${{ matrix.os }} py${{ matrix.python }}
+    needs: [tmi, accel, cli]
+    runs-on: ${{ matrix.os }}
+    # A smoke run takes under a minute; a hang must not hold a runner.
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+        python: ["3.10", "3.13"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Install from the built wheels only
+        run: |
+          python -m pip install --upgrade pip
+          # tmi's parts from dist only (never an index); tmi itself names
+          # neither, so only Pillow comes from PyPI.
+          python -m pip install --no-index --find-links dist --no-deps tmi-accel tmi-cli
+          python -m pip install dist/tmi-*-py3-none-any.whl
+          python -m pip check
+      - name: tmiki --help, tmi_accel loads with every required feature, init/add/commit
+        env:
+          TMI_AUTHOR_NAME: ci
+          TMI_AUTHOR_EMAIL: ci@example.invalid
+        run: |
+          tmiki --help > /dev/null
+          tmiki --version
+          python -c "from tmi import accel; accel.native()"
+          mkdir work && cd work
+          python -c "from PIL import Image; Image.new('RGBA', (64, 48), (200, 40, 40, 255)).save('a.png')"
+          tmiki init
+          tmiki add a.png
+          tmiki commit -m first
+          tmiki log --oneline
+          tmiki status
+          # `tmi` is the Rust executable. These are served natively:
+          # TMI_DEBUG_FORWARD=1 says nothing. PYTHONUTF8=1 because the
+          # Windows runners' output encoding is cp1252, and write commands
+          # go to Python unless the output is UTF-8.
+          native() {
+            msg=$(TMI_DEBUG_FORWARD=1 PYTHONUTF8=1 "$@" 2>&1 >/dev/null) && test -z "$msg" \
+              || { echo "not served natively: $* -> $msg"; return 1; }
+          }
+          python -c "from PIL import Image; Image.new('RGBA', (80, 60), (40, 40, 200, 255)).save('b.png')"
+          native tmiki add b.png
+          native tmiki commit -m second
+          native tmiki log --oneline
+          native tmiki status
+          # Forwarding to `python -m tmi` works: TMI_NATIVE=0 hands every
+          # command over and Python answers the same; with no Python to
+          # start, the same command fails, so it was Python that answered.
+          test "$(TMI_NATIVE=0 tmiki log --oneline)" = "$(tmiki log --oneline)"
+          msg=$(TMI_NATIVE=0 TMI_PYTHON=no-such-python tmiki log --oneline 2>&1) && exit 1
+          grep 'this command runs in Python, but no-such-python could not be started' <<< "$msg"
+          tmiki-py log --oneline
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [tmi, accel, cli, accel-sdist, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - run: ls -l dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true

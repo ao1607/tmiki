@@ -1,0 +1,127 @@
+# The plugin author's tools (PLUGINS.md 7.1, P8): for both templates of
+# `tmiki plugin new` (reader and writer; plugins are written in Rust, Q14),
+# new -> build -> test on Linux, Windows and macOS, with the tools a plugin
+# author installs (rustup's wasm32-wasip2 target). tmi itself installs and
+# downloads nothing; this workflow installs what `tmiki plugin doctor` names.
+#
+# The second job runs tmi-plugin-tools' own tests: every check of `tmiki plugin
+# test` against the test plugins of rust/plugins, the templates, and
+# PLUGIN_SPEC.md held against the WIT and the OpenRaster plugin (its 10).
+name: plugin-templates
+
+on:
+  pull_request:
+    paths:
+      - "rust/**"
+      - "tmi/cli.py"
+      - ".github/workflows/plugin-templates.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  templates:
+    name: template${{ matrix.writer && ' --writer' || '' }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+        writer: [false, true]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Build tmi
+        working-directory: rust
+        run: |
+          cargo build --release -p tmi-cli
+          echo "$GITHUB_WORKSPACE/rust/target/release" >> "$GITHUB_PATH"
+      - name: tmiki plugin doctor
+        run: tmiki plugin doctor
+      - name: tmiki plugin new
+        run: |
+          mkdir -p "$RUNNER_TEMP/plugins"
+          cd "$RUNNER_TEMP/plugins"
+          tmiki plugin new demo ${{ matrix.writer && '--writer' || '' }}
+          if tmiki plugin new other --lang python; then
+            echo "plugin new took --lang python"; exit 1
+          fi
+      - name: tmiki plugin build
+        working-directory: ${{ runner.temp }}/plugins/demo
+        run: |
+          tmiki plugin doctor
+          tmiki plugin build
+      - name: tmiki plugin test
+        working-directory: ${{ runner.temp }}/plugins/demo
+        run: |
+          tmiki plugin test --update
+          tmiki plugin test --native
+          tmiki plugin test --fuzz 1000
+      - name: The component goes into a repository
+        working-directory: ${{ runner.temp }}/plugins
+        env:
+          TMI_AUTHOR_NAME: ci
+          TMI_AUTHOR_EMAIL: ci@example.invalid
+          TMI_PLUGIN_HOME: ${{ runner.temp }}/plugin-home
+        run: |
+          tmiki plugin install demo/target/tmi-plugin/demo.wasm
+          mkdir repo && cd repo
+          tmiki init
+          cp ../demo/tests/corpus/sample.demo .
+          tmiki plugin add demo
+          tmiki add sample.demo
+          tmiki commit -m "a sample file"
+          tmiki ls-layers sample.demo | grep -q background
+
+      - name: tmiki plugin dev
+        working-directory: ${{ runner.temp }}/plugins/repo
+        env:
+          TMI_AUTHOR_NAME: ci
+          TMI_AUTHOR_EMAIL: ci@example.invalid
+        run: |
+          dev=(../demo/target/debug/demo-dev)
+          tmiki plugin dev "${dev[@]}" | tee dev.txt
+          grep -q "plugin demo 0.1.0" dev.txt
+          cp sample.demo again.demo
+          tmiki plugin dev "${dev[@]}" -- add again.demo
+          tmiki status --porcelain | grep -q "A  again.demo"
+          if tmiki commit -m "a development plugin's record"; then
+            echo "commit took a record of the development plugin"; exit 1
+          fi
+  tools:
+    name: tmi-plugin-tools tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: cargo test -p tmi-plugin-tools
+        working-directory: rust
+        env:
+          RUST_MIN_STACK: "16777216"
+        run: cargo test --release -p tmi-plugin-tools

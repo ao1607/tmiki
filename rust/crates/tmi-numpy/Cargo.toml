@@ -1,0 +1,10 @@
+[package]
+name = "tmi-numpy"
+description = "numpy- and CPython-exact float helpers (rounding, interp, linspace)"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+rayon.workspace = true

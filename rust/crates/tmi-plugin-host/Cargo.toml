@@ -1,0 +1,34 @@
+[package]
+name = "tmi-plugin-host"
+description = "tmi's host for wasm format plugins (PLUGINS.md P5): the wasmtime engine, deterministic WASI, host helpers, limits, the compiled-component cache, the instance pool and the WasmReader"
+version.workspace = true
+edition.workspace = true
+
+[features]
+# The OpenRaster test plugin built natively, behind tmi_format::FormatReader
+# (tmi-conform's comparisons and measurements; the tests always have it).
+native-ora = ["dep:tmi-plugin-ora"]
+
+[dependencies]
+# Pinned (PLUGINS.md 9): moving wasmtime is a planned job (the determinism
+# corpus, every .cwasm compiled again). No async, no GC (PLUGINS.md 3.1).
+wasmtime = { version = "=49.0.3", default-features = false, features = ["cranelift", "component-model", "pooling-allocator", "parallel-compilation", "runtime", "std"] }
+wasmtime-wasi = { version = "=49.0.3", default-features = false, features = ["p2"] }
+# wasmtime-wasi's own rand; ChaCha20 with a fixed seed for wasi:random.
+rand = { version = "=0.10.3", default-features = false, features = ["chacha"] }
+ring = "0.17"
+flate2.workspace = true
+roxmltree = "0.20"
+# The workspace's SQLite 3.50.4 (tmi-clip's rusqlite); hooks for the authorizer.
+rusqlite = { version = "0.40.2", features = ["bundled", "serialize", "hooks", "limits"] }
+tmi-format.workspace = true
+tmi-import.workspace = true
+tmi-image.workspace = true
+tmi-clip.workspace = true
+tmi-store.workspace = true
+tmi-pillow.workspace = true
+tmi-plugin-dev = { path = "../tmi-plugin-dev" }
+tmi-plugin-ora = { path = "../../plugins/ora", optional = true }
+
+[dev-dependencies]
+tmi-plugin-ora = { path = "../../plugins/ora" }

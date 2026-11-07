@@ -1,0 +1,13 @@
+[package]
+name = "tmi-plugin-bad-dev"
+description = "A development plugin (tmiki plugin dev's RPC) that misbehaves on purpose: what it does is its first argument (the host's tests, tmi-plugin-host/src/hardening_tests.rs)"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "bad-dev"
+path = "src/main.rs"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tmi-plugin-dev = { path = "../../crates/tmi-plugin-dev" }

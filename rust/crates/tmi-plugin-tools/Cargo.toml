@@ -1,0 +1,26 @@
+[package]
+name = "tmi-plugin-tools"
+description = "tmi's tools for plugin authors (PLUGINS.md 7.1, P8): plugin new / build / test / doctor / install, the templates and PLUGIN_SPEC.md"
+version.workspace = true
+edition.workspace = true
+
+[features]
+# The OpenRaster test plugin built natively (the tests compare it with its
+# component through the same checks `tmiki plugin test --native` will run).
+native-ora = ["tmi-plugin-host/native-ora"]
+
+[dependencies]
+rayon.workspace = true
+tmi-store.workspace = true
+tmi-import.workspace = true
+tmi-format.workspace = true
+tmi-codec.workspace = true
+tmi-plugin-host.workspace = true
+# the RPC's values (tmiki plugin dev): what test compares in
+tmi-plugin-dev.workspace = true
+# tmi-plugin-host's wasmtime (the same pinned version): `test` calls one
+# instance several times through `Plugin::call`.
+wasmtime = { version = "=49.0.3", default-features = false, features = ["component-model", "runtime"] }
+
+[dev-dependencies]
+tmi-plugin-host = { workspace = true, features = ["native-ora"] }

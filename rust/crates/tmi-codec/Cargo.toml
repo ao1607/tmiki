@@ -1,0 +1,10 @@
+[package]
+name = "tmi-codec"
+description = "PNG encode, content-defined chunking and the TMIL layer blob"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rayon.workspace = true
+mtpng.workspace = true
+zstd.workspace = true

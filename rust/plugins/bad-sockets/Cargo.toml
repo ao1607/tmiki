@@ -1,0 +1,12 @@
+[package]
+name = "tmi-plugin-bad-sockets"
+description = "A plugin that imports wasi:sockets (PLUGINS.md 3.2: refused when it is loaded)"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wit-bindgen.workspace = true

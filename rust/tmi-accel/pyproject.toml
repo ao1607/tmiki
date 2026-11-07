@@ -1,0 +1,16 @@
+[build-system]
+requires = ["maturin>=1.0"]
+build-backend = "maturin"
+
+[project]
+name = "tmi-accel"
+version = "0.1.0"
+description = "Native acceleration kernels for tmi (blend compositing)."
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+module-name = "tmi_accel"

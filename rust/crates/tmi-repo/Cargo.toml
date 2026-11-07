@@ -1,0 +1,22 @@
+[package]
+name = "tmi-repo"
+description = "tmi's repository: refs, revisions, commits, index, stat cache, config, ignore, reflog"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tmi-store.workspace = true
+tmi-import.workspace = true
+tmi-format.workspace = true
+# P6: the format plugins a repository's .tmiattributes maps files to
+tmi-plugin-host.workspace = true
+# P9: the structure cache's files hold devwire's CBOR
+tmi-plugin-dev.workspace = true
+rayon.workspace = true
+indexmap = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug", "Win32_Foundation", "Win32_System_Time", "Win32_Storage_FileSystem"] }

@@ -1,0 +1,21 @@
+[package]
+name = "tmi-transport"
+description = "tmi's remotes (tmi/transport): local paths and tmihub over HTTPS; fetch, push, pull and clone"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tmi-store.workspace = true
+tmi-repo.workspace = true
+rayon.workspace = true
+flate2.workspace = true
+indexmap = "2"
+# The zlib CPython 3.13 ships, for zlib.decompress's error texts.
+libz-sys = { version = "=1.1.24", default-features = false, features = ["stock-zlib", "static"] }
+libc = "0.2"
+# urllib.request over rustls; the platform's root certificates, as Python's
+# ssl module loads them.
+ureq = { version = "2.12", default-features = false, features = ["tls", "native-certs"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Registry", "Win32_Foundation"] }

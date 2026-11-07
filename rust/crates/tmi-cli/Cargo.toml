@@ -1,0 +1,34 @@
+[package]
+name = "tmi-cli"
+description = "tmiki: the Rust command-line front door (native read-only commands, Python for the rest)"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "tmiki"
+path = "src/main.rs"
+
+[dependencies]
+tmi-store.workspace = true
+tmi-repo.workspace = true
+tmi-import.workspace = true
+tmi-transport.workspace = true
+tmi-format.workspace = true
+# P5: wasmtime in the one executable (PLUGINS.md Q8, case A)
+tmi-plugin-host.workspace = true
+# P8: plugin new / build / test / doctor / install
+tmi-plugin-tools.workspace = true
+indexmap = "2"
+tmi-diffmerge = { path = "../tmi-diffmerge" }
+rayon.workspace = true
+clap = { version = "4.5", default-features = false, features = ["std"] }
+regex = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tmi-codec.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Globalization", "Win32_System_Console", "Win32_Foundation", "Win32_System_Time"] }

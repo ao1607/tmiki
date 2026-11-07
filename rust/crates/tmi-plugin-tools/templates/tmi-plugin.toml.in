@@ -1,0 +1,23 @@
+# How `tmiki plugin build` and `tmiki plugin test` treat this directory. Not part
+# of the component (the component's own `info` says its id and version).
+
+[plugin]
+id = "{{id}}"
+# tmi plugins are written in Rust (the only language)
+lang = "rust"
+# format-reader (reads only) | format-plugin (reads and writes back)
+world = "{{world}}"
+
+[build]
+# Where the component goes (relative to this file).
+output = "target/tmi-plugin/{{id}}.wasm"
+
+[test]
+# Sample files; `tmiki plugin test --update` writes <file>.expect.json beside each.
+corpus = "tests/corpus"
+
+[dev]
+# The plugin as a development plugin (tmiki plugin dev): `tmiki plugin test
+# --native` runs this command in this directory and compares its answers
+# with the component's; `tmiki plugin build` makes what it runs.
+command = "target/debug/{{id}}-dev"

@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "tmi-accel"]
+# plugins/: the test plugins, their own workspace (built for wasm32-wasip2)
+exclude = ["vendor", "plugins"]
+
+# libsqlite3-sys 0.38.2 with the SQLite it bundles swapped for 3.50.4, the
+# SQLite CPython 3.13's sqlite3 module carries: CLIP write-back serializes the
+# database, and the file header records the SQLite version that wrote it
+# (RUST_MIGRATION.md 2c). vendor/libsqlite3-sys/sqlite3/ holds the official
+# amalgamation (sqlite-amalgamation-3500400.zip, source id 2025-07-30
+# 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3);
+# the bundled bindings keep 0.38.2's, with the version constants set to
+# 3.50.4's and the 3.53-only SCM constants dropped.
+[patch.crates-io]
+libsqlite3-sys = { path = "vendor/libsqlite3-sys" }
+
+[workspace.package]
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[workspace.dependencies]
+tmi-pillow = { path = "crates/tmi-pillow" }
+tmi-numpy = { path = "crates/tmi-numpy" }
+tmi-clip = { path = "crates/tmi-clip" }
+tmi-render = { path = "crates/tmi-render" }
+tmi-codec = { path = "crates/tmi-codec" }
+tmi-image = { path = "crates/tmi-image" }
+tmi-store = { path = "crates/tmi-store" }
+tmi-repo = { path = "crates/tmi-repo" }
+tmi-import = { path = "crates/tmi-import" }
+tmi-format = { path = "crates/tmi-format" }
+tmi-plugin-host = { path = "crates/tmi-plugin-host" }
+tmi-plugin-dev = { path = "crates/tmi-plugin-dev" }
+tmi-plugin-tools = { path = "crates/tmi-plugin-tools" }
+tmi-transport = { path = "crates/tmi-transport" }
+rayon = "1.10"
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+mtpng = "0.4.1"
+zstd = { version = "0.13", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

@@ -1,0 +1,18 @@
+[package]
+name = "tmi-image"
+description = "Image codecs matched to Pillow 12.3: PNG / JPEG decode to Pillow's modes, JPEG / WebP encode"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tmi-pillow.workspace = true
+png = "0.18.1"
+# libjpeg-turbo's decoder (MozJPEG 4 is libjpeg-turbo 2.1 plus encoder
+# extensions, built by cc without nasm); the jpeg8 ABI as Pillow's build.
+mozjpeg-sys = { version = "=2.2.3", default-features = false, features = ["unwinding", "jpeg80_abi"] }
+# libwebp 1.6.0, the version Pillow 12.3's wheels carry.
+libwebp-sys = { version = "=0.14.4", default-features = false, features = ["std"] }
+libc = "0.2"
+flate2.workspace = true
+mtpng.workspace = true
+tmi-codec.workspace = true

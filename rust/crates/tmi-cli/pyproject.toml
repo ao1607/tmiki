@@ -1,0 +1,20 @@
+# The `tmi` executable as a wheel (RUST_MIGRATION.md 3a): maturin's "bin"
+# bindings put it in the environment's Scripts / bin directory. One wheel per
+# platform serves every Python (py3-none-<platform>). It is installed beside
+# the Python package `tmi`, which does not name it as a dependency (neither is
+# on PyPI; issue #33) and names its own console script `tmiki-py`, which the
+# executable runs for the commands it hands to Python when no `python` sits
+# next to it.
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tmi-cli"
+version = "0.1.0"
+description = "tmi's command-line front door (Rust); runs Python tmi for the commands it does not serve"
+requires-python = ">=3.10"
+classifiers = ["Programming Language :: Rust"]
+
+[tool.maturin]
+bindings = "bin"

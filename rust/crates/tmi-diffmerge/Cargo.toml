@@ -1,0 +1,25 @@
+[package]
+name = "tmi-diffmerge"
+description = "tmi's diff (tmi/diff.py, tmi/diff_html.py), merge (tmi/merge.py, the merge and conflict paths of tmi/repo.py), layer write-back and stash push"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tmi-store.workspace = true
+tmi-repo.workspace = true
+tmi-import.workspace = true
+tmi-format.workspace = true
+tmi-clip.workspace = true
+tmi-render.workspace = true
+tmi-image.workspace = true
+tmi-pillow.workspace = true
+tmi-codec.workspace = true
+rayon.workspace = true
+flate2.workspace = true
+indexmap = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_SystemInformation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

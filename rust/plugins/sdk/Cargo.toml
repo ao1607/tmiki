@@ -1,0 +1,17 @@
+[package]
+name = "tmi-plugin-sdk"
+description = "Write a tmi format plugin once in Rust (PLUGINS.md 7.1, P8): a wasm32-wasip2 component through wit-bindgen (export_plugin!), and the same code as a native development plugin speaking `tmiki plugin dev`'s RPC (dev_main)"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# the WIT's types on every target (natively too: the plugin's code uses
+# them as they are; only the import functions are the SDK's own there)
+# (explicit, not workspace-inherited: tmi-plugin-host's tests build the ORA
+# plugin, and so this crate, from the main workspace)
+wit-bindgen = { version = "=0.63.0", default-features = false, features = ["macros", "realloc"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# the frames and messages of tmiki plugin dev
+tmi-plugin-dev = { path = "../../crates/tmi-plugin-dev" }
