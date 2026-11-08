@@ -1,168 +1,178 @@
-# tmiki — イラストのための Git
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/tmiki-lockup-dark.svg">
+    <img src="docs/brand/tmiki-lockup-light.svg" alt="tmiki" width="340">
+  </picture>
+</p>
 
-**tmiki is Git for layered illustration files (CLIP STUDIO PAINT `.clip`, MediBang / FireAlpaca `.mdp`).**
-**It tracks layers, merges per layer, shows diffs as pictures, and attaches a thumbnail to every commit.**
-**Commands are Git's own (`init` / `add` / `commit` / `log` / `diff` / `branch` / `merge` …). Docs are in Japanese.**
+<h3 align="center">レイヤーごとに、絵の履歴を。</h3>
+<p align="center">CLIP STUDIO PAINT とメディバンペイントのファイルを、Git と同じ操作でバージョン管理。</p>
 
-**「あの時のレイヤー、もう一回見たい」を、ちゃんと取り出せるバージョン管理。**
+<p align="center">
+  <a href="#できること">できること</a> · <a href="#インストール"><b>インストール</b></a> ·
+  <a href="#対応形式">対応形式</a> · <a href="#使い方">使い方</a> ·
+  <a href="#ヘルプ">ヘルプ</a>
+</p>
 
-tmiki（ツミキ）は、CLIP / MDP2 などの **レイヤーのあるイラストファイル** を、Git のように履歴管理するためのツールです。
-1 枚絵の制作・連載・差分提出・複数人での共同作画など、「途中の状態をなくしたくない」場面に使えます。
+<p align="center">
+  <a href="#ライセンス"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-4A3B32" alt="MIT / Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/status-pre--release-E2B77A" alt="リリース前">
+  <a href="https://github.com/ao1607/tmiki/commits/main"><img src="https://img.shields.io/github/last-commit/ao1607/tmiki?color=6C9BD2" alt="最終更新"></a>
+</p>
 
-> 開発中のソフトウェアです。まだリリース版（配布用の実行ファイル）はありません。いまはソースからビルドして使います。
+<p align="center"><sub><b>日本語</b> · <a href="README.en.md">English</a></sub></p>
 
----
+**無料でオープンソース。** 描くアプリはいつものまま。保存したファイルを `tmiki commit` で記録すると、レイヤー単位の差分・マージ・巻き戻しができます。アカウントもサーバーも要りません。
 
-## こんなことに困っていませんか？
+<p align="center">
+  <img src="docs/media/diff-side-by-side.png" width="900" alt="tmiki diff --html の報告。左が前の版、右が今の版で、変わったレイヤー（塗り・線画）が表に並ぶ">
+  <br><sub>前の版と今の版を並べて、どのレイヤーが変わったかまで見られます（<code>tmiki diff --html</code>）。</sub>
+</p>
 
 - `illust_v3_final_FIX2_本当の最終.clip` を量産してしまう
-- 「2日前の塗りの方が良かった」けど上書き保存済み
-- 共同作画で、相手の修正と自分の修正が混ざってどっちが正解か分からない
-- どこをどう直したのか、後から自分でも思い出せない
-- 過去のレイヤーだけ1枚 PNG で抜きたいのに、もうファイルがない
+- 「2 日前の塗りの方が良かった」のに上書き保存してしまった
+- 共同作画で、相手の修正と自分の修正がどちらが正解か分からなくなる
+- 過去のレイヤーを 1 枚だけ PNG で取り出したいのに、もうファイルがない
 
-tmiki はこれらを、**Git と同じ考え方** で、しかも **レイヤー単位** で解決します。
-
----
+tmiki はこれらを、Git と同じ考え方で、しかもレイヤー単位で解決します。
 
 ## できること
 
-### レイヤーごとの履歴
+<details>
+<summary><b>レイヤーごとの履歴</b> — 過去の 1 レイヤーだけを取り出す・戻す</summary>
+<br>
 
-`.clip`（CLIP STUDIO PAINT）/ `.mdp`（メディバンペイント・FireAlpaca）を **レイヤー構造のまま** 保存します（PSD のレイヤーは今後の予定）。
-コミットしたあとからでも、「あの時の "線画" レイヤーだけ PNG で取り出す」「"影" レイヤーだけ昔の状態に戻す」ができます。
-
-```
-tmiki restore --source HEAD~3 --output line_old.png illust.clip:line
-```
-
-### ビジュアル diff
-
-差分が「何バイト変わった」ではなく **絵で見える** のが tmiki の中心の機能です。
-
-- side-by-side: 前後を並べる
-- overlay: 重ねて変更箇所をハイライト
-- per-layer: レイヤー別に差分を出す
-- HTML レポート: 1 ファイルにまとめてブラウザでめくれる
-
-```
-tmiki diff --html illust.clip
-```
-
-比べる相手は Git と同じです。引数なしの `tmiki diff` は「まだ `add` していない変更」、`add` した後は `tmiki diff --staged`、コミット済みの変更は `tmiki diff HEAD~1` です。
-
-### レイヤーを見分ける 3-way マージ
-
-ブランチを切って別バージョンを作り、後でマージできます。
-**同じファイルでも別のレイヤーをいじっていれば自動でマージできます。** 片側だけのレイヤー追加・削除・名前の変更・不透明度などの変更も自動で取り込みます（両側がレイヤー構成を変えた場合は衝突）。
-ぶつかったレイヤーだけが「衝突」として上がってくるので、`tmiki restore --theirs illust.clip:線画` のようにレイヤー単位で選べます。
-
-### サムネが必ず付くコミット履歴
-
-コミットには **その時点の合成サムネが必ず添付されます**。`tmiki show --thumbnail <コミット>` で PNG として取り出せます。
-
-### Git のコマンドそのまま
-
-`init` / `add` / `commit` / `log` / `diff` / `branch` / `switch` / `merge` / `restore` / `tag` / `remote` / `fetch` / `pull` / `push` / `clone`。
-Git を触ったことがあれば、ほぼそのまま使えます。
-
-### どんなファイルでも一応バージョン管理できる
-
-レイヤーを読めるのは CLIP / MDP2 だけですが、ほかのファイルも Git と同じように追跡できます。
-PNG / JPEG / GIF / BMP / TIFF / WebP / PSD（合成画像）は画像として、それ以外はバイナリとして格納します。
-
-### 形式プラグイン
-
-対応形式は WebAssembly のプラグイン（Rust で書く）で増やせます。仕様は [`rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md`](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md)、雛形は `tmiki plugin new` で作れます。
-
----
-
-## 使い方の例
+`.clip` と `.mdp` をレイヤー構造のまま記録します。コミットしたあとからでも、「3 つ前の "線画" だけ PNG で取り出す」「"影" だけ昔の状態に戻す」ができます。
 
 ```powershell
-# はじめる
-tmiki init
-tmiki add illust.clip
-tmiki commit -m "ラフ"
-
-# 進めてコミット
-tmiki commit -a -m "線画"
-tmiki commit -a -m "下塗り"
-
-# 未コミットの今のファイル、どう変わった？
-tmiki diff --html illust.clip   # ブラウザで開く
-
-# 試行錯誤用にブランチ
-tmiki switch -c try-purple
-# ...いろいろ塗る...
-tmiki commit -a -m "紫案"
-
-# 気に入らなければ戻る
-tmiki switch main
-tmiki branch -D try-purple   # 案を捨てる
-
-# 気に入ればマージ
-tmiki merge try-purple -m "紫案を採用"
+tmiki restore --source HEAD~3 --output line_old.png illust.clip:線画
+tmiki restore --source HEAD~3 --in-place illust.clip:影
 ```
 
----
+</details>
 
-## インストール（ソースから）
+<details>
+<summary><b>絵で見る diff</b> — 並べる・重ねる・レイヤー別・スワイプ</summary>
+<br>
 
-リリース版の実行ファイルはまだありません。いまは次の手順でソースから入れます。Python 3.10 以上、[Rust](https://rustup.rs)、Windows では Visual Studio Build Tools の C++ が要ります。
+差分は「何バイト変わったか」ではなく絵で出ます。`--html` で、ブラウザでめくれる報告を 1 ファイルにまとめます。
+
+<p align="center">
+  <img src="docs/media/diff-per-layer.png" width="560" alt="per-layer 表示。変わった範囲が赤い枠で示される">
+  <br><sub>per-layer 表示。変わった範囲を枠で示します。</sub>
+</p>
+
+比べる相手は Git と同じです。`tmiki diff` はまだ `add` していない変更、`--staged` は `add` した変更、`tmiki diff HEAD~1` はコミット済みの変更です。
+
+</details>
+
+<details>
+<summary><b>レイヤーを見分けるマージ</b> — 別々のレイヤーを描いたら、そのまま 1 枚に</summary>
+<br>
+
+ブランチで別の案を描いて、あとから取り込めます。同じファイルでも、触ったレイヤーが違えば自動でマージされます。両方が同じレイヤーを描き換えたときだけ、そのレイヤーが衝突として上がり、`tmiki restore --theirs illust.clip:線画` のようにレイヤー単位で選べます。
+
+<p align="center">
+  <img src="docs/media/terminal-merge.png" width="620" alt="main で屋根の色を変え、flag ブランチで旗を描き、merge で自動的に 1 枚にまとまった端末の出力">
+  <br><sub>main は「塗り」、flag ブランチは「線画」を描いたので、衝突なしでまとまります。冒頭の画像の右側がこの結果です。</sub>
+</p>
+
+</details>
+
+<details>
+<summary><b>サムネが付く履歴</b> — ハッシュではなく絵で思い出す</summary>
+<br>
+
+コミットには、その時点の合成サムネが必ず付きます。`tmiki show --thumbnail <コミット>` で PNG として取り出せます。
+
+</details>
+
+<details>
+<summary><b>Git のコマンドそのまま</b> — 覚え直しはいりません</summary>
+<br>
+
+`init` · `add` · `commit` · `status` · `log` · `diff` · `branch` · `switch` · `merge` · `restore` · `tag` · `stash` · `remote` · `fetch` · `pull` · `push` · `clone`。用語も Git のままです。ローカルのフォルダ、bare リポジトリ、HTTPS のリモートとやりとりできます。
+
+</details>
+
+<details>
+<summary><b>形式プラグイン</b> — 対応形式を自分で足す</summary>
+<br>
+
+対応形式は WebAssembly のプラグイン（Rust で書きます）で増やせます。`tmiki plugin new` で雛形を作り、`tmiki plugin test` で確かめます。仕様は [PLUGIN_SPEC.md](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) にあります。
+
+</details>
+
+## インストール
+
+**リリース版（配布用の実行ファイル）はまだありません。** いまはソースからビルドして使います。
+
+<details open>
+<summary><b>ソースからビルドする</b></summary>
+<br>
+
+必要なもの：Python 3.10 以上、[Rust](https://rustup.rs)、Windows では Visual Studio Build Tools の C++。
 
 ```powershell
+git clone https://github.com/ao1607/tmiki
+cd tmiki
 pip install .\rust\tmi-accel        # 描画などのネイティブモジュール
-pip install .\rust\crates\tmi-cli   # コマンド tmiki（Rust の実行ファイル）
+pip install .\rust\crates\tmi-cli   # コマンド tmiki
 pip install -e .                    # Python 側の本体
 tmiki --version
 ```
 
-Rust のビルドに数分かかります（その間 pip は何も表示しません）。PyPI には公開していないので、`pip install tmiki` のように名前で入れないでください。
+Rust のビルドに数分かかります（その間 pip は何も表示しません）。PyPI には公開していないので、`pip install tmiki` のように名前では入れないでください。
 
-詳しい使い方・部品の役割・困ったときの切り分けは [docs/MANUAL.md](docs/MANUAL.md) にあります。
+</details>
 
----
+[利用の手引き（全文）](docs/MANUAL.md) · [困ったとき](docs/MANUAL.md#困ったとき)
 
-## どこまでできる？ どこは未対応？
+## 対応形式
 
-**入っているもの**
-- Git のメインライン相当のコマンド一式
-- `.clip` / `.mdp`（MDP2）のレイヤーの読み込みと書き戻し
-- レイヤー単位の add / restore / merge
-- ビジュアル diff（side-by-side / overlay / per-layer / HTML）
-- 合成サムネを自動で添付するコミット
-- フック（`pre-commit` ほか）と形式プラグイン
-- 履歴の復旧（`recover` / `reflog`）と `gc`
-- ローカルパス・bare リポジトリ・HTTPS リモートへの push / pull / clone
+| 形式 | 記録のしかた | diff | マージ |
+| --- | --- | --- | --- |
+| **CLIP STUDIO PAINT** `.clip` | レイヤーごと | レイヤー別まで | レイヤー単位で自動 |
+| **メディバンペイント・FireAlpaca** `.mdp` | レイヤーごと | レイヤー別まで | レイヤー単位で自動 |
+| **PNG · JPEG** | 1 枚の画像 | 絵で比較 | 自動 |
+| **GIF · BMP · TIFF · WebP · PSD**（合成画像） | 1 枚の画像 | 絵で比較 | 両方で変えたらどちらかを選ぶ |
+| **そのほか** | バイナリ | 変わったかどうか | どちらかを選ぶ |
 
-**今後の予定**
-- 配布用の実行ファイル（Windows / macOS / Linux）
-- PSD のレイヤー認識
-- 大きなファイルを必要になってから取得する遅延 fetch（LFS 相当）
-- GUI クライアント
+PSD のレイヤーは今後の予定です。どれに入るかは拡張子ではなく中身で決まります。[詳しく](docs/MANUAL.md#対応フォーマット)
 
----
+## 使い方
 
-## 誰のためのもの？
+```powershell
+tmiki init
+tmiki add illust.clip
+tmiki commit -m "ラフ"
 
-- 1 人で描いていて、過去のレイヤー状態をなくしたくない人
-- 「前回最終 → 今回原稿」の差分を出したい人
-- 共同作画で、誰がどのレイヤーを触ったかを正しくマージしたい人
-- 「Git をイラストでもやりたかった」人
+tmiki diff --html illust.clip      # まだ記録していない変化をブラウザで見る
+tmiki commit -a -m "線画"          # 描き進めたら、そのたびに
 
----
+tmiki switch -c try-purple         # 別の案はブランチで
+tmiki commit -a -m "紫案"
+tmiki switch main
+tmiki merge try-purple -m "紫案を採用"
+```
 
-## 名前について
+マージや巻き戻しで tmiki がファイルを書き換えたあと、描くアプリで開いたまま保存すると、古い内容に戻ってしまいます。開き直してから続けてください。tmiki も書き換えたファイルの一覧を出して知らせます。
 
-tmiki（ツミキ）は、レイヤーとコミットを積み上げる道具という意味です。開発中は tmi という名前だったので、Python のパッケージ・Rust の crate・リポジトリの中身（`.tmi/`）・環境変数（`TMI_*`）・設計の記録（`RUST_MIGRATION.md`・`PLUGINS.md` など）には旧名が残っています。
+## ヘルプ
 
-## ファイル形式について
+[利用の手引き](docs/MANUAL.md) · [プラグインの作り方](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [不具合を報告](https://github.com/ao1607/tmiki/issues/new) ·
+[ファイル形式の調査メモ](research/) · [設計の記録](PLUGINS.md)
 
-CLIP / MDP2 の読み書きは、各アプリで条件を変えて保存したファイルを観察して実装しています。アプリ本体の解析はしていません。調べた内容は [`research/`](research/) にあります。
+## このプロジェクトについて
 
-tmiki は個人の独立したプロジェクトで、CLIP STUDIO PAINT・メディバンペイント・FireAlpaca の開発元とは関係ありません。各名称は各社の商標です。
+**名前**：tmiki（ツミキ）は、レイヤーとコミットを積み上げる道具という意味です。開発中は tmi という名前だったので、Python のパッケージ・Rust の crate・リポジトリの中身（`.tmi/`）・環境変数（`TMI_*`）・設計の記録には旧名が残っています。
+
+**ファイル形式の調べ方**：CLIP と MDP2 の読み書きは、各アプリで条件を変えて保存したファイルを観察して実装しています。アプリ本体の解析はしていません。README の画像も、[tools/readme](tools/readme/) のスクリプトで描いた見本を使っています。
+
+**商標**：tmiki は個人の独立したプロジェクトで、CLIP STUDIO PAINT・メディバンペイント・FireAlpaca の開発元とは関係ありません。各名称は各社の商標です。
 
 ## ライセンス
 
 [MIT](LICENSE-MIT) または [Apache-2.0](LICENSE-APACHE) のどちらかを選べます。`rust/vendor/libsqlite3-sys` は同梱した外部のコードで、それぞれのライセンスに従います。
+
+<sub>AI ツール向け：<a href="CLAUDE.md">開発の手引き（英語）</a></sub>

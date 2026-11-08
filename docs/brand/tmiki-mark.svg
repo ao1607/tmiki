@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 88" width="160" height="176" role="img" aria-label="tmiki">
+  <g transform="translate(0 2)"><g stroke="#4A3B32" stroke-width="4" stroke-linejoin="round">
+    <rect x="6" y="56" width="32" height="24" rx="2" fill="#E2B77A"/>
+    <rect x="42" y="56" width="32" height="24" rx="2" fill="#6C9BD2"/>
+    <rect x="16" y="36" width="48" height="20" rx="2" fill="#D9735B"/>
+    <path d="M16 36 L40 12 L64 36 Z" fill="#EBC55A"/>
+  </g></g>
+</svg>
