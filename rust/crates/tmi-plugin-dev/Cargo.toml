@@ -3,6 +3,7 @@ name = "tmi-plugin-dev"
 description = "The wire of `tmiki plugin dev` (PLUGINS.md 7.1, P8): length-prefixed CBOR frames on a development plugin's stdin and stdout, and the messages they carry. Shared by tmi-plugin-host and the Rust plugin SDK (rust/plugins/sdk); no dependencies"
 # explicit (not workspace-inherited): rust/plugins' SDK depends on it by path
 version = "0.1.0"
+license = "MIT"
 edition = "2021"
 
 [dependencies]

@@ -123,9 +123,13 @@ pub fn sdk_files() -> Vec<(String, Vec<u8>)> {
     text("sdk/tmi-plugin-dev/src/cbor.rs", DEV_CBOR, &[]);
     text("sdk/tmi-plugin-dev/src/frame.rs", DEV_FRAME, &[]);
     text("sdk/tmi-plugin-dev/src/msg.rs", DEV_MSG, &[]);
+    // the SDK is MIT (tmiki itself is AGPL-3.0): its copies carry the notice
+    text("sdk/LICENSE-MIT", SDK_LICENSE, &[]);
     out.push(("sdk/tmi-plugin-dev/testdata/structure.cbor".into(), DEV_FIXTURE.to_vec()));
     out
 }
+
+const SDK_LICENSE: &str = include_str!("../../../plugins/sdk/LICENSE-MIT");
 
 const SDK_CARGO: &str = include_str!("../../../plugins/sdk/Cargo.toml");
 const SDK_LIB: &str = include_str!("../../../plugins/sdk/src/lib.rs");

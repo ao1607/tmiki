@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-4A3B32" alt="MIT / Apache-2.0"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-AGPL--3.0-4A3B32" alt="AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/status-pre--release-E2B77A" alt="Pre-release">
   <a href="https://github.com/ao1607/tmiki/commits/main"><img src="https://img.shields.io/github/last-commit/ao1607/tmiki?color=6C9BD2" alt="Last commit"></a>
 </p>
@@ -171,6 +171,8 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 
 ## License
 
-Your choice of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE). `rust/vendor/libsqlite3-sys` is bundled third-party code under its own licenses.
+tmiki is licensed under the [GNU AGPL-3.0](LICENSE). Anyone may use it for free, including for paid drawing work. If you distribute a modified version, or offer one as a network service, you must publish its source under the AGPL-3.0 as well.
+
+The parts for writing plugins are [MIT](LICENSE-MIT): everything `tmiki plugin new` writes and its sources (`rust/plugins/sdk`, `rust/crates/tmi-plugin-dev`, `rust/crates/tmi-plugin-tools/templates`, `rust/crates/tmi-format/wit`, PLUGIN_SPEC.md), so a plugin can carry any license. `rust/vendor/libsqlite3-sys` is bundled third-party code under its own licenses.
 
 <sub>For AI tools: <a href="CLAUDE.md">developer guide</a></sub>

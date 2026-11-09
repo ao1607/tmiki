@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "tmiki: Git-like version control for layered illustration files"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT OR Apache-2.0"
-license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 # Pillow is imported only for images tmi_accel leaves to it (raster formats
 # other than PNG / JPEG, an APNG, a damaged JPEG, headers tmi.raster does not
 # read with certainty; RUST_MIGRATION.md 2d) but stays required: without it

@@ -2,6 +2,7 @@
 name = "tmi-plugin-sdk"
 description = "Write a tmi format plugin once in Rust (PLUGINS.md 7.1, P8): a wasm32-wasip2 component through wit-bindgen (export_plugin!), and the same code as a native development plugin speaking `tmiki plugin dev`'s RPC (dev_main)"
 version = "0.1.0"
+license = "MIT"
 edition = "2021"
 publish = false
 
