@@ -36,6 +36,11 @@ fn ascii_fold(text: &str, collapse: impl Fn(&str) -> String) -> Result<Option<St
         let replaced: String = text.chars().map(|c| if is_py_space(c) { ' ' } else { c }).collect();
         return Ok(Some(collapse(&replaced).to_ascii_lowercase()));
     }
+    if !tmi_repo::py::python_fallback() {
+        // standing alone: every name folds here (kana and kanji have no case)
+        let replaced: String = text.chars().map(|c| if is_py_space(c) { ' ' } else { c }).collect();
+        return Ok(Some(tmi_repo::py::casefold_approx(&collapse(&replaced))));
+    }
     if text.chars().any(|c| !c.is_ascii() && !is_py_space(c) && !folds_to_ascii(c)) {
         return Ok(None);
     }
@@ -258,10 +263,13 @@ pub fn find_mdp2_layer(doc: &tmi_clip::mdp2::Mdp2, selector: &str) -> Result<Opt
     if sel.is_empty() {
         return Ok(None);
     }
-    if !sel.is_ascii() {
+    if !sel.is_ascii() && tmi_repo::py::python_fallback() {
         return Err(fwd("a non-ASCII MDP2 layer selector"));
     }
-    let body = if sel.len() >= 5 && sel[..5].eq_ignore_ascii_case("mdp2:") { &sel[5..] } else { sel };
+    let body = match sel.get(..5) {
+        Some(p) if p.eq_ignore_ascii_case("mdp2:") => &sel[5..],
+        _ => sel,
+    };
     if !body.is_empty() && body.bytes().all(|b| b.is_ascii_digit()) {
         let Ok(id) = body.parse::<i64>() else { return Err(fwd("an MDP2 id past i64")) };
         if let Some(i) = doc.layers.iter().position(|l| l.id_key == tmi_clip::mdp2::IntKey::small(id)) {

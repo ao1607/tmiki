@@ -208,7 +208,13 @@ pub fn add(argv: &[String], out: &mut Out) -> CmdResult {
         let result = match plugin_layer_spec(&repo, &stager, spec)? {
             // `file:layer` of a plugin format: the executable's (PLUGINS.md P7)
             Some((rel, full, layer, id)) => tmi_diffmerge::stage_layer::stage_plugin_layer(&mut stager, &rel, &full, &layer, &id),
-            None => stager.stage_file(spec, force, None),
+            None => match builtin_layer_spec(&repo, spec)? {
+                // `file:layer` of a built-in format
+                Some((rel, file_part, full, layer)) => {
+                    tmi_diffmerge::stage_layer::stage_builtin_layer(&mut stager, &rel, &file_part, &full, &layer, force)
+                }
+                None => stager.stage_file(spec, force, None),
+            },
         };
         let (rel, changed) = settle(&mut stager, out, result)?;
         emit_warnings(&mut stager, out);
@@ -247,6 +253,19 @@ pub fn add(argv: &[String], out: &mut Out) -> CmdResult {
     stager.finish()?;
     progress.done();
     Ok(0)
+}
+
+/// A `file:layer` spec of a built-in layered or image extension (repo.py
+/// `split_pathspec`): (rel, the file part, the working file, the layer).
+fn builtin_layer_spec(repo: &Repo, spec: &str) -> Result<Option<(String, String, std::path::PathBuf, String)>, RepoError> {
+    let (file_part, layer) = tmi_repo::paths::split_pathspec(spec)?;
+    let Some(layer) = layer else { return Ok(None) };
+    let full = repo.pathspec_full_path(&file_part)?;
+    if !full.exists() {
+        return Err(RepoError::NotFound(format!("no such file to add: {}", full.display())));
+    }
+    let rel = repo.relpath(&full)?;
+    Ok(Some((rel, file_part, full, layer)))
 }
 
 /// A `file:layer` spec whose file `.tmiattributes` maps to a format plugin:

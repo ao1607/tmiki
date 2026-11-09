@@ -154,6 +154,9 @@ fn main() {
     }
     let native_off = std::env::var("TMI_NATIVE").is_ok_and(|v| v.trim() == "0");
     let utf8: Option<Vec<String>> = argv[1..].iter().map(|a| a.clone().into_string().ok()).collect();
+    if utf8.is_none() {
+        forward::forward_or_fail(&argv, "an argument that is not valid Unicode");
+    }
     if let (false, Some(args)) = (native_off, utf8) {
         tmi_repo::hooks::set_python(pyenv::python_for_hooks());
         interrupt::install();
@@ -170,9 +173,20 @@ fn main() {
                 out.flush();
                 std::process::exit(code);
             }
-            Outcome::Done(_) => forward::log_reason("output needs Python's encoder"),
-            Outcome::Forward(why) => forward::log_reason(&why),
+            Outcome::Done(_) => {
+                forward::log_reason("output needs Python's encoder");
+                forward::forward_or_fail(&argv, "output needs Python's encoder");
+            }
+            Outcome::Forward(why) => {
+                forward::log_reason(&why);
+                // standing alone, what was printed before the command gave up
+                // (warnings) still goes out with the error
+                if !pyenv::fallback() {
+                    out.flush();
+                }
+                forward::forward_or_fail(&argv, &why);
+            }
         }
     }
-    forward::forward(&argv);
+    forward::forward_or_fail(&argv, "TMI_NATIVE=0");
 }

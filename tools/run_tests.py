@@ -59,6 +59,9 @@ DEFAULT_MODULES = [
     "tests.test_plugin_dev",
 ]
 RUST_TMI = ROOT / "rust" / "target" / "release" / ("tmiki.exe" if os.name == "nt" else "tmiki")
+# The executable stands alone unless TMI_PYTHON names a Python; the tests
+# compare it with `python -m tmi` and let it hand over what it does not serve.
+os.environ.setdefault("TMI_PYTHON", sys.executable)
 VARIANTS = {
     "accel": {},
     "verify": {"TMI_VERIFY_PARTIAL": "1"},

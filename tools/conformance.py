@@ -2080,6 +2080,8 @@ def main() -> int:
         json.dumps({"version": 1, "user": {"name": "Global Name", "email": "g@example.com"}, "core": {"x": 1.5}},
                    indent=2) + "\n", encoding="utf-8")
     env = dict(os.environ)
+    # parity mode: the executable hands over what it does not serve
+    env.setdefault("TMI_PYTHON", sys.executable)
     env.update({
         "TMI_AUTHOR_NAME": "Tester", "TMI_AUTHOR_EMAIL": "tester@example.com", "TMI_CONFIG_HOME": str(user_home),
         "PYTHONPATH": str(ROOT) + os.pathsep + env.get("PYTHONPATH", ""),

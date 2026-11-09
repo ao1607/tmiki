@@ -1,11 +1,11 @@
 """Draw a small 'stacked blocks' illustration in four layers and write it as
 an MDP2 (.mdp) file, for tmiki's README screenshots.
 
-    python make_demo_mdp.py OUT.mdp [--rough] [--green] [--flag]
+    python make_demo_mdp.py OUT.mdp [--rough] [--green] [--flag] [--roof R,G,B]
 
 --rough: 背景 + 線画 only
 default: 背景 / 塗り / 影 / 線画, yellow roof
---green: the roof on the 塗り layer is green
+--green or --roof R,G,B: the roof's colour on the 塗り layer
 --flag:  a flag on the 線画 layer
 Everything is drawn here; no outside artwork is used.
 """
@@ -173,6 +173,8 @@ def main():
     out = sys.argv[1]
     rough = "--rough" in sys.argv
     roof = ROOF_GREEN if "--green" in sys.argv else ROOF_YELLOW
+    if "--roof" in sys.argv:
+        roof = tuple(int(v) for v in sys.argv[sys.argv.index("--roof") + 1].split(",")) + (255,)
     flag = "--flag" in sys.argv
     layers = [("背景", layer_background())]
     if not rough:

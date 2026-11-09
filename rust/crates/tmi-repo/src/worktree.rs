@@ -24,6 +24,9 @@ fn suffix_lower(text: &str) -> Result<String> {
     let name = std::path::Path::new(text).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let suffix = tmi_import::path_suffix(&name);
     if !suffix.is_ascii() {
+        if !crate::py::python_fallback() {
+            return Ok(suffix.to_lowercase());
+        }
         return Err(RepoError::forward("a non-ASCII extension (str.lower())"));
     }
     Ok(suffix.to_ascii_lowercase())

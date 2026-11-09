@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/license-AGPL--3.0-4A3B32" alt="AGPL-3.0"></a>
-  <img src="https://img.shields.io/badge/status-pre--release-E2B77A" alt="Pre-release">
+  <a href="https://github.com/ao1607/tmiki/releases/latest"><img src="https://img.shields.io/github/v/release/ao1607/tmiki?include_prereleases&label=download&color=E2B77A" alt="Download"></a>
   <a href="https://github.com/ao1607/tmiki/commits/main"><img src="https://img.shields.io/github/last-commit/ao1607/tmiki?color=6C9BD2" alt="Last commit"></a>
 </p>
 
@@ -105,24 +105,31 @@ More formats come as WebAssembly plugins written in Rust. `tmiki plugin new` mak
 
 ## Install
 
-**There is no release (ready-made executable) yet.** For now, build from source.
+**[Download tmiki for Windows →](https://github.com/ao1607/tmiki/releases/latest)**
 
-<details open>
-<summary><b>Build from source</b></summary>
-<br>
-
-You need Python 3.10 or newer, [Rust](https://rustup.rs), and on Windows the C++ part of Visual Studio Build Tools.
+Unzip it, and put `tmiki.exe` in a folder on your PATH or run it where it is. It is a single executable, so Python and other runtimes are not needed.
 
 ```powershell
-git clone https://github.com/ao1607/tmiki
-cd tmiki
-pip install .\rust\tmi-accel        # native module (rendering and more)
-pip install .\rust\crates\tmi-cli   # the tmiki command
-pip install -e .                    # the Python part
 tmiki --version
 ```
 
-The Rust builds take a few minutes, and pip shows nothing meanwhile. tmiki is not on PyPI, so do not install it by name (`pip install tmiki`).
+<sub>File: `tmiki-0.1.0-windows-x64.zip` (`tmiki.exe` and the licenses)</sub>
+
+There are no ready-made builds for macOS and Linux yet. Build from source there.
+
+<details>
+<summary><b>Build from source</b></summary>
+<br>
+
+You need [Rust](https://rustup.rs), and on Windows the C++ part of Visual Studio Build Tools.
+
+```powershell
+git clone https://github.com/ao1607/tmiki
+cd tmiki\rust
+cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
+```
+
+The build takes several minutes. The Python package in the repository is the reference implementation that the tests compare against; tmiki itself does not need it.
 
 </details>
 

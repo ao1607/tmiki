@@ -31,7 +31,8 @@ pub fn help(argv: &[String], out: &mut Out) -> CmdResult {
         Some("80") => true,
         Some(_) => false,
     };
-    if !width_80 {
+    // standing alone, the 80-column layout is the help at every width
+    if !width_80 && crate::pyenv::fallback() {
         return Err(fwd("help for a width other than 80 columns"));
     }
     let version = crate::pyenv::python_version().ok_or_else(|| fwd("help: Python version unknown"))?;

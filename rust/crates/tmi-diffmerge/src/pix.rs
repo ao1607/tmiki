@@ -579,7 +579,7 @@ pub fn py_repr(s: &str) -> tmi_repo::Result<String> {
             || ('\u{4e00}'..='\u{9fff}').contains(&c)
             || ('\u{ff01}'..='\u{ff5e}').contains(&c)
     };
-    if !s.chars().all(printable) {
+    if !s.chars().all(printable) && tmi_repo::py::python_fallback() {
         return Err(fwd("repr of a text with characters Python may escape"));
     }
     let quote = if s.contains('\'') && !s.contains('"') { '"' } else { '\'' };

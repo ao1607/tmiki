@@ -124,6 +124,9 @@ fn site_dirs() -> Option<Vec<PathBuf>> {
 /// Whether a distribution registers a `tmi.plugins` entry point (commit
 /// emits plugin events). Unknown counts as yes.
 pub fn plugins_installed() -> bool {
+    if !crate::pyenv::fallback() {
+        return false;
+    }
     let Some(dirs) = site_dirs() else { return true };
     for dir in dirs {
         let Ok(entries) = std::fs::read_dir(&dir) else { continue };

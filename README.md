@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="#ライセンス"><img src="https://img.shields.io/badge/license-AGPL--3.0-4A3B32" alt="AGPL-3.0"></a>
-  <img src="https://img.shields.io/badge/status-pre--release-E2B77A" alt="リリース前">
+  <a href="https://github.com/ao1607/tmiki/releases/latest"><img src="https://img.shields.io/github/v/release/ao1607/tmiki?include_prereleases&label=download&color=E2B77A" alt="ダウンロード"></a>
   <a href="https://github.com/ao1607/tmiki/commits/main"><img src="https://img.shields.io/github/last-commit/ao1607/tmiki?color=6C9BD2" alt="最終更新"></a>
 </p>
 
@@ -105,24 +105,31 @@ Rustで書いたWebAssemblyプラグインで、対応形式を増やせます�
 
 ## インストール
 
-**リリース版（完成済みの実行ファイル）はまだありません。** 当面はソースからビルドしてください。
+**[Windows版tmikiをダウンロード →](https://github.com/ao1607/tmiki/releases/latest)**
 
-<details open>
-<summary><b>ソースからビルド</b></summary>
-<br>
-
-Python 3.10以降、[Rust](https://rustup.rs)、およびWindowsではVisual Studio Build ToolsのC++コンポーネントが必要です。
+解凍して、`tmiki.exe`をPATHの通ったフォルダに置くか、そのまま実行してください。単一の実行ファイルなので、Pythonなどのランタイムは不要です。
 
 ```powershell
-git clone https://github.com/ao1607/tmiki
-cd tmiki
-pip install .\rust\tmi-accel        # ネイティブモジュール（レンダリングなど）
-pip install .\rust\crates\tmi-cli   # tmikiコマンド
-pip install -e .                    # Python部分
 tmiki --version
 ```
 
-Rustのビルドには数分かかり、その間pipは何も表示しません。tmikiはPyPIに公開していないため、`pip install tmiki`のように名前を指定してインストールしないでください。
+<sub>ファイル: `tmiki-0.1.0-windows-x64.zip`（`tmiki.exe`とライセンス）</sub>
+
+macOSおよびLinux向けのビルド済みパッケージはまだ用意されていません。そちらはソースからビルドしてください。
+
+<details>
+<summary><b>ソースからビルド</b></summary>
+<br>
+
+[Rust](https://rustup.rs)と、WindowsではVisual Studio Build ToolsのC++コンポーネントが必要です。
+
+```powershell
+git clone https://github.com/ao1607/tmiki
+cd tmiki\rust
+cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
+```
+
+ビルドには数分かかります。リポジトリ内のPythonパッケージは、テストが照合するリファレンス実装であり、tmiki本体には必要ありません。
 
 </details>
 

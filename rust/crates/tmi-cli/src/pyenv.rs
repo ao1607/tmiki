@@ -5,8 +5,19 @@
 //!
 //! Anything not read with certainty returns None and the command goes to
 //! Python.
+//!
+//! The executable stands alone unless `TMI_PYTHON` names a Python
+//! ([`fallback`]): then nothing goes to Python, the version is tmiki's own,
+//! no Python plugins exist, and the tables recorded from Python 3.13
+//! (help texts, argparse's errors, casefold) are the behaviour itself.
 
 use std::path::{Path, PathBuf};
+
+/// Whether commands this executable does not serve may go to Python: only
+/// when `TMI_PYTHON` is set (development and the parity tools).
+pub fn fallback() -> bool {
+    tmi_repo::py::python_fallback()
+}
 
 fn exe_name(stem: &str) -> String {
     if cfg!(windows) {
@@ -134,7 +145,11 @@ pub fn package_dirs() -> Option<Vec<PathBuf>> {
 }
 
 /// `X.Y.Z` of the interpreter, from pyvenv.cfg or the DLL beside it.
+/// Standing alone: the version the recorded tables come from.
 pub fn python_version() -> Option<String> {
+    if !fallback() {
+        return Some(format!("{}.0", crate::help_text::PYTHON_VERSION));
+    }
     let python = python()?;
     let bindir = python.parent()?;
     for d in [bindir.parent(), Some(bindir)].into_iter().flatten() {
@@ -211,6 +226,9 @@ fn all_dirs() -> Option<Vec<PathBuf>> {
 /// Whether any installed distribution declares a `tmi.plugins` entry
 /// point (Python would load and call it). None when unsure.
 pub fn has_plugins() -> Option<bool> {
+    if !fallback() {
+        return Some(false);
+    }
     for dir in all_dirs()? {
         let Ok(entries) = std::fs::read_dir(&dir) else { continue };
         for e in entries.flatten() {
@@ -349,6 +367,9 @@ fn accel_found(dirs: &[PathBuf]) -> bool {
 
 /// cli.py `_version_text()`, when every part is certain.
 pub fn version_text() -> Option<String> {
+    if !fallback() {
+        return Some(format!("tmiki {}", env!("CARGO_PKG_VERSION")));
+    }
     let dirs = all_dirs()?;
     let tmi = tmi_version(&dirs)?;
     let accel = if accel_found(&dirs) {

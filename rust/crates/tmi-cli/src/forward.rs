@@ -98,7 +98,28 @@ fn cannot_run(program: &std::path::Path, err: &std::io::Error) {
     );
 }
 
+/// Standing alone (no `TMI_PYTHON`): what this executable does not serve is
+/// an error, not a hand-over. Argument errors exit 2 as argparse's do.
+fn unsupported(why: &str) -> ! {
+    if why.contains("argparse") || why.starts_with("argument error") || why.starts_with("invalid choice") {
+        eprintln!("tmiki: error: these arguments are not accepted ({why}); see 'tmiki -h'");
+        std::process::exit(2);
+    }
+    eprintln!("tmiki: error: not supported: {why}");
+    std::process::exit(1);
+}
+
+pub fn forward_or_fail(argv: &[OsString], why: &str) -> ! {
+    if !crate::pyenv::fallback() {
+        unsupported(why);
+    }
+    forward(argv)
+}
+
 pub fn forward(argv: &[OsString]) -> ! {
+    if !crate::pyenv::fallback() {
+        unsupported("this command line");
+    }
     let (program, prefix) = python_command();
     let mut cmd = Command::new(&program);
     cmd.args(&prefix).args(&argv[1..]).env(GUARD, "1");

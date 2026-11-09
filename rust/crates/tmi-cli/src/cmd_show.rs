@@ -50,13 +50,48 @@ pub fn pathspec_relpath(repo: &Repo, pathspec: &str, known: &dyn Fn(&str) -> boo
     candidates.into_iter().next().ok_or_else(|| fwd("pathspec outside the working tree"))
 }
 
+/// `show --thumbnail [-o FILE] [REV]` (cli.py `cmd_show`): the commit's
+/// thumbnail as a PNG, by default under `.tmi/thumbnails/` (not the working
+/// tree, where `add -A` would pick it up; issue #15).
+fn thumbnail(m: &clap::ArgMatches, out: &mut Out) -> CmdResult {
+    let repo = Repo::open()?;
+    let target = args::get_str(m, "object").filter(|t| !t.is_empty()).unwrap_or_else(|| "HEAD".into());
+    let mut warnings = Vec::new();
+    let resolved = repo.resolve_rev(Some(&target), &mut warnings);
+    for w in warnings.drain(..) {
+        out.eprintln(w);
+    }
+    let Some(oid) = resolved? else {
+        return Err(RepoError::runtime(format!("unknown revision: {target}")));
+    };
+    let commit = repo.read_commit(&oid)?;
+    let blob_ref = match commit.get("thumbnail_ref") {
+        Some(Value::Str(r)) if !r.is_empty() => r.clone(),
+        _ => return Err(RepoError::runtime(format!("commit {} has no thumbnail", prefix_chars(&oid, 12)))),
+    };
+    let png = tmi_diffmerge::pix::layer_blob_to_png(&repo.store.read_blob(&blob_ref)?, &tmi_import::Limits::NONE)?;
+    let output = args::get_str(m, "output");
+    let path = match &output {
+        Some(o) => std::path::PathBuf::from(o),
+        None => repo.repo_dir.join("thumbnails").join(format!("{}-thumbnail.png", prefix_chars(&oid, 12))),
+    };
+    crate::writes::begin()?;
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|e| RepoError::runtime(format!("{}: {e}", parent.display())))?;
+    }
+    std::fs::write(&path, png).map_err(|e| RepoError::runtime(format!("{}: {e}", path.display())))?;
+    let shown = if output.is_some() { path.display().to_string() } else { py::realpath(&path).display().to_string() };
+    out.println(format!("wrote {shown}"));
+    Ok(0)
+}
+
 pub fn show(argv: &[String], out: &mut Out) -> CmdResult {
     let m = args::parse(show_cmd(), argv, &["object"])?;
     let date = args::get_str(&m, "date").unwrap_or_else(|| "iso".into());
     args::check_choice(&Some(date.clone()), &["iso", "local", "short"])?;
     let abbrev = args::get_int(&m, "abbrev")?.unwrap_or(12);
     if args::get_flag(&m, "thumbnail") {
-        return Err(fwd("show --thumbnail writes a PNG"));
+        return thumbnail(&m, out);
     }
     let repo = Repo::open()?;
     let target = args::get_str(&m, "object").filter(|t| !t.is_empty()).unwrap_or_else(|| "HEAD".into());

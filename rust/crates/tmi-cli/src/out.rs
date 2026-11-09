@@ -80,8 +80,12 @@ impl Out {
         self.events.iter().any(|(_, _, c)| matches!(c, Chunk::Bytes(_)))
     }
 
-    /// Whether this output can be written exactly as Python would.
+    /// Whether this output can be written exactly as Python would (standing
+    /// alone there is no one else to write it: always).
     pub fn writable(&self) -> bool {
+        if !crate::pyenv::fallback() {
+            return true;
+        }
         for stream in [Stream::Stdout, Stream::Stderr] {
             match encoding(stream) {
                 Encoding::Utf8 | Encoding::Cp932 => {}
@@ -246,8 +250,17 @@ fn is_utf8_name(name: &str) -> bool {
     matches!(n.as_str(), "utf8" | "u8" | "utf" | "cp65001")
 }
 
-/// The encoding CPython 3.13 gives `sys.stdout` / `sys.stderr`.
+/// The encoding CPython 3.13 gives `sys.stdout` / `sys.stderr`. Standing
+/// alone, what Python would leave to its own codecs is written as UTF-8.
 pub fn encoding(stream: Stream) -> Encoding {
+    let e = python_encoding(stream);
+    if !crate::pyenv::fallback() && matches!(e, Encoding::Unknown | Encoding::LegacyAscii) {
+        return Encoding::Utf8;
+    }
+    e
+}
+
+fn python_encoding(stream: Stream) -> Encoding {
     if env_nonempty("PYTHONLEGACYWINDOWSSTDIO").is_some() {
         return Encoding::Unknown;
     }

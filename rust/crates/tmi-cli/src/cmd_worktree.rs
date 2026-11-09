@@ -117,15 +117,19 @@ fn checkout_inner(repo: &Repo, branch: Option<String>, values: Vec<String>, disc
     }
     if values.len() > 1 {
         let source = &values[0];
-        for spec in &values[1..] {
-            if split_pathspec(spec)?.1.is_some() {
-                return Err(fwd("checkout of a layer"));
-            }
-        }
         let progress = Progress::new();
+        let mut layers = crate::cmd_layer::LayerWrites::new(&repo)?;
         for spec in &values[1..] {
             progress.report(&format!("restoring {spec}"));
-            let r = repo.restore_file(spec, Some(source), None, &format!("checkout {source}"), &mut warnings);
+            // `file:layer`: that layer of the commit exported as a PNG
+            // beside the file (repo.py `restore` without --in-place)
+            let r = if split_pathspec(spec)?.1.is_some() {
+                let r = layers.restore_layer(spec, Some(source), false, None, &mut warnings);
+                layers.warnings(out);
+                r
+            } else {
+                repo.restore_file(spec, Some(source), None, &format!("checkout {source}"), &mut warnings)
+            };
             writes::warnings(out, &mut warnings);
             let path = r?;
             out.println(format!("restored {}", path.display()));
@@ -151,7 +155,12 @@ fn checkout_inner(repo: &Repo, branch: Option<String>, values: Vec<String>, disc
     writes::warnings(out, &mut warnings);
     if !is_rev && repo.pathspec_exists_or_tracked(target)? {
         if split_pathspec(target)?.1.is_some() {
-            return Err(fwd("checkout of a layer"));
+            let mut layers = crate::cmd_layer::LayerWrites::new(&repo)?;
+            let r = with_progress(&format!("restoring {target}"), || layers.restore_layer(target, None, false, None, &mut warnings));
+            layers.warnings(out);
+            writes::warnings(out, &mut warnings);
+            out.println(format!("restored {}", r?.display()));
+            return Ok(0);
         }
         let r = with_progress(&format!("restoring {target}"), || repo.restore_file(target, None, None, "checkout", &mut warnings));
         writes::warnings(out, &mut warnings);

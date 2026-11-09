@@ -8,51 +8,20 @@
 
 ## インストール
 
-Python 3.10 以上が必要です。tmi は 3 つの部品でできていて、**3 つとも必要**です。
-
-- コマンド `tmiki` (`tmi-cli`。Rust 製の実行ファイル): ほとんどのコマンドを自分で処理し、残りを Python の本体に渡します (下記)。自分で処理するコマンドでは `tmi_accel` を使いません。
-- 本体 `tmi` (Python のパッケージ。コマンド名は `tmiki-py`): `tmi` が渡すコマンドを処理します。
-- 本体の中核のネイティブモジュール `tmi-accel` (`tmi_accel`。Rust 製: CLIP の描画、レイヤーの保存形式 TMIL の符号化・復号、PNG エンコード、タイルの復号、オブジェクトの分割位置の計算など)。これが無いか古いと、Python の本体 (`tmiki-py` と、`tmi` が渡したコマンド) のうち画素を扱うものはインストール方法を示すエラーで止まります (`status` や `log` などは動きます)。
-
-tmi は PyPI には公開しません (今後はプラットフォームごとの実行ファイルで配布する予定で、Python の部分はいずれ外します)。PyPI の `tmi` は別のプロジェクトで、`tmi-accel`・`tmi-cli` という名前も tmi のものではありません。`pip install tmi` などで PyPI から入れないでください。本体 `tmi` は `tmi-accel`・`tmi-cli` を依存として名指ししていないので、下のどの手順でも pip が PyPI からそれらの名前を取ってくることはありません (PyPI から入るのは Pillow だけです)。
-
-ほかに Pillow が要ります (`tmi` の依存として pip が入れます)。CLIP・MDP2 と、PNG・JPEG・GIF・BMP・TIFF・WebP・PSD の画像を扱うコマンドは Pillow を読み込みません (これらの画像は tmi 自身のデコーダが読みます)。Pillow を使うのは、`tmi_accel` が読まないものだけです: PNG・JPEG 以外の形式で入っている CLIP のプレビュー画像と、tmi が保存した PNG・JPEG のうち、`tmi_accel` が確実には読めない一部のヘッダ。Pillow が無いとそれらはエラーになります。どのファイルが画像として記録されるか (下の「対応フォーマット」) は tmi 自身の規則で決まり、Pillow の有無や版には左右されません。numpy は実行には要りません (テストと参照実装だけが使います)。
-
-### ソースから (今はこちら)
-
-リリースの wheel はまだ公開していません (#18)。今は、このリポジトリから入れます。`tmi-accel` のビルドには **Rust toolchain** (<https://rustup.rs>) と **maturin** が要ります (pip は maturin をビルド用に自分で取ってきます。Windows では Rust のために Visual Studio Build Tools の C++ も要ります)。
+tmiki は単一の実行ファイル（`tmiki.exe`）です。[Releases](https://github.com/ao1607/tmiki/releases) のページからダウンロードするか、Rust でソースからビルドしてください。Python は不要です。
 
 ```powershell
-pip install .\rust\tmi-accel        # tmi_accel (Rust のビルド)
-pip install .\rust\crates\tmi-cli   # コマンド `tmiki` (Rust の実行ファイル)
-pip install -e .                    # 本体 (Python。コマンド `tmiki-py`)
+cd rust
+cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 ```
 
-3 つは別々に入れます (順番は問いません)。本体は `tmi-accel` を依存に持たないので、入れ忘れると画素を扱うコマンドが「`tmi_accel` が無い」と言って止まります。`rust\tmi-accel` と `rust\crates\tmi-cli` はどちらも Rust のビルドで、数分かかります (4 コアの PC で `tmi-accel` が約 2 分、wasmtime を含む `tmi-cli` が約 7 分)。その間 pip は何も表示しないので、止まって見えても待ってください (`pip install -v` を付けると経過が見えます)。
+### 開発用の Python パッケージ
 
-コマンド `tmiki` は `tmi-cli` が入れる Rust の実行ファイルで、ほとんどのコマンドを自分で処理します: `init`・`clone`・`fetch`・`push`・`pull`、`status`・`add`・`commit`・`rm`・`mv`、`log`・`show`・`ls-layers`・`diff` (`--html` を含む全モード)、`branch`・`tag`・`switch`・`checkout`・`merge`・`restore`・`reset`・`stash`、`remote`・`config`・`hook`・`gc`・`recover` / `reflog`。次のような場合だけ、同じ環境の Python (`python -m tmi`。Python 側のコマンド名は `tmiki-py`) に渡します。どちらで動いても出力と結果は同じです (RUST_MIGRATION.md 3a〜4b)。
+リポジトリにはPythonパッケージ（`tmi`）とリファレンス実装（`tmiref/`）も含まれています。これらは開発用で、テストでは実行ファイルと照合します。`TMI_PYTHON` にパッケージがインストール済みのPythonを指定すると、実行ファイルは自身で処理できない稀なコマンドラインをそのPythonに渡します。`TMI_PYTHON` がない場合、そのようなコマンドラインは「not supported」とその理由とともに停止します。
 
-- レイヤーを指定した add (`tmiki add illust.clip:線画`)、`show --thumbnail`、`checkout <rev> <file>:<layer>`、まだ add していないファイルの `ls-layers`
-- シンボリックリンクやジャンクションを名指しした add、作業ツリーにリンクがあるときの `status`・`add .`
-- 読み込めないファイル (画素数の上限を超えた画像など) がある `add`
-- プラグイン (`tmi.plugins`) が入った環境の commit・merge・pull・switch など
-- Rust 側が再現しない設定のとき (HTTPS 越しの転送でのプロキシの設定や、URL の中の資格情報など)、出力の文字コードが UTF-8・cp932 以外で ASCII 以外の文字を出すときなど
+テストとリファレンス実装には numpy、Pillow、`zstandard` (`pip install -e .[test]`) が必要であり、Python パッケージにはネイティブモジュール (`pip install .\rust\tmi-accel`) が必要です。
 
-どれが渡されたかは `TMI_DEBUG_FORWARD=1` で分かります (下の「困ったとき」)。古い版から入れ直すときは、`tmi` を入れたあとに `tmi-cli` をもう一度入れてください (古い版の `tmi` コマンドを消すときに、同じ名前の実行ファイルも消えるため)。開発中に Rust 側を作り直すときは、`rust\tmi-accel` で `maturin develop --release` を使えます。
-
-形式プラグインのホスト (`rust\crates\tmi-plugin-host`、PLUGINS.md の P5) は wasmtime ごと `tmi` の実行ファイルに入っています。`tmi-cli` のビルドに追加の手順はありませんが、Rust のテスト (`cargo test --workspace`) はテスト用のプラグイン (`rust\plugins`。独立した workspace) を WebAssembly にビルドして使うので、先に `rustup target add wasm32-wasip2` が要ります。手で作るときは `cargo build --release --target wasm32-wasip2 --manifest-path rust\plugins\Cargo.toml` です。
-
-### リリースの wheel から (公開後)
-
-GitHub の Releases に、本体 `tmi-<版>-py3-none-any.whl` と、OS ごとの `tmi_accel-<版>-cp310-abi3-<OS>.whl`・`tmi_cli-<版>-py3-none-<OS>.whl` (Windows x64 / macOS universal2 / Linux x86_64。Python 3.10 以降はどの版でも同じ wheel) を置く予定です。3 つをダウンロードして、まとめて入れます。この経路なら Rust は不要です。
-
-```powershell
-pip install .\tmi_accel-0.1.0-cp310-abi3-win_amd64.whl .\tmi_cli-0.1.0-py3-none-win_amd64.whl .\tmi-0.1.0-py3-none-any.whl
-```
-
-### テストと参照実装
-
-`tools/` とテストは、tmi の描画を Python で書いた参照実装 `tmiref/` (このリポジトリの直下。tmi の wheel には入りません) とも比べます。これには numpy・Pillow・`zstandard` が要ります (`pip install -e .[test]`)。描画の式を CSP の出力に合わせて詰めるときも `tmiref` を使います (RUST_MIGRATION.md 1e)。
+形式プラグインのホスト (`rust\crates\tmi-plugin-host`、PLUGINS.md の P5) は wasmtime ごと `tmiki` の実行ファイルに入っています。`tmi-cli` のビルドに追加の手順はありませんが、Rust のテスト (`cargo test --workspace`) はテスト用のプラグイン (`rust\plugins`。独立した workspace) を WebAssembly にビルドして使うので、先に `rustup target add wasm32-wasip2` が要ります。手で作るときは `cargo build --release --target wasm32-wasip2 --manifest-path rust\plugins\Cargo.toml` です。
 
 ### 困ったとき
 
@@ -60,13 +29,13 @@ pip install .\tmi_accel-0.1.0-cp310-abi3-win_amd64.whl .\tmi_cli-0.1.0-py3-none-
 
 | 変数 | 働き |
 | --- | --- |
-| `TMI_DEBUG_FORWARD=1` | コマンド `tmiki` が Python に渡したとき、その理由を 1 行出す |
-| `TMI_NATIVE=0` | どのコマンドも Python で動かす (Rust の `tmi` と結果が違うと思ったら、これで比べられます) |
-| `TMI_PYTHON=<python のパス>` | 渡す先の Python (既定は `tmi` と同じ場所の python、無ければ PATH の python) |
+| `TMI_DEBUG_FORWARD=1` | `TMI_PYTHON` が設定されている場合：コマンドを Python に渡した理由を1行で出力します |
+| `TMI_NATIVE=0` | `TMI_PYTHON` が設定されている場合：すべてのコマンドを Python で実行します（実行ファイルの結果と比較するため） |
+| `TMI_PYTHON=<python のパス>` | 開発用：サポート対象外のコマンドラインを渡すためのPython（これがないとtmikiはPythonを使用しません） |
 | `TMI_PROGRESS=1` / `0` | 進捗を端末以外にも出す / 端末でも出さない (下記) |
 | `TMIHUB_TIMEOUT=<秒>` | HTTPS リモート (tmihub) との通信で、接続・送信・受信のそれぞれが進まないまま待つ秒数 (既定 300)。超えると「tmihub stopped answering」で止まります。少しずつでも進んでいる転送は、どれだけ長くても切りません |
 
-バグ報告には `tmiki --version` (tmi と tmi_accel の版) を添えてください。「Python の部分が import できない」と出たら、`tmi` が使う Python に本体が入っていません (`pip install -e .` を同じ環境で実行するか、`TMI_PYTHON` でその Python を指定します)。
+バグレポートに`tmiki --version`の出力結果を添付してください。
 
 ### add が止まったとき
 
