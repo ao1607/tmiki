@@ -167,8 +167,6 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 
 **Name:** tmiki (*tsumiki*, building blocks) stacks up layers and commits. It was called tmi while in development, so the Python package, the Rust crates, the repository layout (`.tmi/`), the `TMI_*` variables and the design notes still use the old name.
 
-**How the formats were worked out:** reading and writing CLIP and MDP2 is based on observing files saved from each app under different settings. The apps themselves were not analysed. The pictures in this README use a sample drawn by the scripts in [tools/readme](tools/readme/).
-
 **Trademarks:** tmiki is an independent personal project, not affiliated with the makers of CLIP STUDIO PAINT, MediBang Paint or FireAlpaca. The names are trademarks of their owners.
 
 ## License
