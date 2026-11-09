@@ -5,8 +5,8 @@
   </picture>
 </p>
 
-<h3 align="center">レイヤーごとに、絵の履歴を。</h3>
-<p align="center">CLIP STUDIO PAINT とメディバンペイントのファイルを、Git と同じ操作でバージョン管理。</p>
+<h3 align="center">絵のすべてのレイヤーに、履歴を。</h3>
+<p align="center">Gitでおなじみのコマンドで操作できる、CLIP STUDIO PAINTとメディバンペイントのバージョン管理ツールです。</p>
 
 <p align="center">
   <a href="#できること">できること</a> · <a href="#インストール"><b>インストール</b></a> ·
@@ -22,27 +22,27 @@
 
 <p align="center"><sub><b>日本語</b> · <a href="README.en.md">English</a></sub></p>
 
-**無料でオープンソース。** 描くアプリはいつものまま。保存したファイルを `tmiki commit` で記録すると、レイヤー単位の差分・マージ・巻き戻しができます。アカウントもサーバーも要りません。
+**無料かつオープンソースです。** 普段使っているアプリで描き続けられます。保存したファイルを`tmiki commit`で記録すれば、レイヤーごとにdiff、マージ、ロールバックが可能です。アカウントもサーバーも不要です。
 
 <p align="center">
-  <img src="docs/media/diff-side-by-side.png" width="900" alt="tmiki diff --html の報告。左が前の版、右が今の版で、変わったレイヤー（塗り・線画）が表に並ぶ">
-  <br><sub>前の版と今の版を並べて、どのレイヤーが変わったかまで見られます（<code>tmiki diff --html</code>）。</sub>
+  <img src="docs/media/diff-side-by-side.png" width="900" alt="tmikiのdiff --htmlレポート：左が旧バージョン、右が現行バージョン、下に変更されたレイヤーが一覧表示されています">
+  <br><sub>2つのバージョンを並べて表示し、どのレイヤーが変更されたかまで示します（<code>tmiki diff --html</code>）。</sub>
 </p>
 
-- `illust_v3_final_FIX2_本当の最終.clip` を量産してしまう
-- 「2 日前の塗りの方が良かった」のに上書き保存してしまった
-- 共同作画で、相手の修正と自分の修正がどちらが正解か分からなくなる
-- 過去のレイヤーを 1 枚だけ PNG で取り出したいのに、もうファイルがない
+- `illust_v3_final_FIX2_本当の最終.clip`のようなファイルを保存し続けている
+- 2日前の塗りの方が良かったのに、上書きしてしまった
+- 共同作業で、誰の修正が正しいのか分からなくなる
+- 古いレイヤーを1枚PNGで欲しいのに、そのファイルがもうない
 
-tmiki はこれらを、Git と同じ考え方で、しかもレイヤー単位で解決します。
+tmikiは、Gitと同じように、レイヤー単位でこれらを解決します。
 
 ## できること
 
 <details>
-<summary><b>レイヤーごとの履歴</b> — 過去の 1 レイヤーだけを取り出す・戻す</summary>
+<summary><b>レイヤーごとの履歴</b> — レイヤーを1枚だけ取り出したり、元に戻したりする</summary>
 <br>
 
-`.clip` と `.mdp` をレイヤー構造のまま記録します。コミットしたあとからでも、「3 つ前の "線画" だけ PNG で取り出す」「"影" だけ昔の状態に戻す」ができます。
+`.clip`と`.mdp`のファイルを、レイヤー構造のまま記録します。コミット後でも、3つ前のコミットの線画をPNGで書き出したり、影のレイヤーだけを元の状態に戻したりできます。
 
 ```powershell
 tmiki restore --source HEAD~3 --output line_old.png illust.clip:線画
@@ -52,77 +52,77 @@ tmiki restore --source HEAD~3 --in-place illust.clip:影
 </details>
 
 <details>
-<summary><b>絵で見る diff</b> — 並べる・重ねる・レイヤー別・スワイプ</summary>
+<summary><b>目で見える差分</b> — 並べて表示・重ね合わせ・レイヤーごと・スワイプ</summary>
 <br>
 
-差分は「何バイト変わったか」ではなく絵で出ます。`--html` で、ブラウザでめくれる報告を 1 ファイルにまとめます。
+差分は変更されたバイト数ではなく、画像で表示されます。`--html`は、それらをブラウザでページめくりできる一つのレポートにまとめます。
 
 <p align="center">
-  <img src="docs/media/diff-per-layer.png" width="560" alt="per-layer 表示。変わった範囲が赤い枠で示される">
-  <br><sub>per-layer 表示。変わった範囲を枠で示します。</sub>
+  <img src="docs/media/diff-per-layer.png" width="560" alt="変更箇所が赤枠で囲まれたレイヤーごとの表示">
+  <br><sub>レイヤーごとの表示では、変わった箇所が枠で示されます。</sub>
 </p>
 
-比べる相手は Git と同じです。`tmiki diff` はまだ `add` していない変更、`--staged` は `add` した変更、`tmiki diff HEAD~1` はコミット済みの変更です。
+比較方法はGitと同様です。`tmiki diff`はまだ`add`していない変更、`--staged`は`add`した変更、`tmiki diff HEAD~1`はコミット済みの変更を比べます。
 
 </details>
 
 <details>
-<summary><b>レイヤーを見分けるマージ</b> — 別々のレイヤーを描いたら、そのまま 1 枚に</summary>
+<summary><b>レイヤーを考慮したマージ</b> — 別々のレイヤーを描いて、1枚の絵にまとめる</summary>
 <br>
 
-ブランチで別の案を描いて、あとから取り込めます。同じファイルでも、触ったレイヤーが違えば自動でマージされます。両方が同じレイヤーを描き換えたときだけ、そのレイヤーが衝突として上がり、`tmiki restore --theirs illust.clip:線画` のようにレイヤー単位で選べます。
+別のアイデアをブランチに描き、後で取り込みます。同じファイル内では、異なるレイヤーへの編集は自動的にマージされます。双方が同じレイヤーを描き直した場合にのみ、そのレイヤーが衝突として表示され、`tmiki restore --theirs illust.clip:線画`のようにレイヤーごとに選びます。
 
 <p align="center">
-  <img src="docs/media/terminal-merge.png" width="620" alt="main で屋根の色を変え、flag ブランチで旗を描き、merge で自動的に 1 枚にまとまった端末の出力">
-  <br><sub>main は「塗り」、flag ブランチは「線画」を描いたので、衝突なしでまとまります。冒頭の画像の右側がこの結果です。</sub>
+  <img src="docs/media/terminal-merge.png" width="620" alt="ターミナルの出力：mainは屋根の色を変更し、flagブランチは旗を描画し、マージでそれらを統合する">
+  <br><sub>mainで塗りレイヤーを、flagブランチで線画レイヤーを変更したため、衝突なくマージできました。1枚目の画像の右半分がその結果です。</sub>
 </p>
 
 </details>
 
 <details>
-<summary><b>サムネが付く履歴</b> — ハッシュではなく絵で思い出す</summary>
+<summary><b>サムネイル付きの履歴</b> — ハッシュではなく、絵で思い出せる</summary>
 <br>
 
-コミットには、その時点の合成サムネが必ず付きます。`tmiki show --thumbnail <コミット>` で PNG として取り出せます。
+各コミットには、その時点の絵全体のサムネイルが付随します。`tmiki show --thumbnail <commit>`はこれをPNG形式で書き出します。
 
 </details>
 
 <details>
-<summary><b>Git のコマンドそのまま</b> — 覚え直しはいりません</summary>
+<summary><b>Gitのコマンドそのまま</b> — 新しく学ぶことはありません</summary>
 <br>
 
-`init` · `add` · `commit` · `status` · `log` · `diff` · `branch` · `switch` · `merge` · `restore` · `tag` · `stash` · `remote` · `fetch` · `pull` · `push` · `clone`。用語も Git のままです。ローカルのフォルダ、bare リポジトリ、HTTPS のリモートとやりとりできます。
+`init` · `add` · `commit` · `status` · `log` · `diff` · `branch` · `switch` · `merge` · `restore` · `tag` · `stash` · `remote` · `fetch` · `pull` · `push` · `clone`。用語もGitのままです。リモートには、ローカルフォルダ、ベアリポジトリ、またはHTTPSが指定できます。
 
 </details>
 
 <details>
-<summary><b>形式プラグイン</b> — 対応形式を自分で足す</summary>
+<summary><b>形式プラグイン</b> — 対応形式を自分で追加できる</summary>
 <br>
 
-対応形式は WebAssembly のプラグイン（Rust で書きます）で増やせます。`tmiki plugin new` で雛形を作り、`tmiki plugin test` で確かめます。仕様は [PLUGIN_SPEC.md](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) にあります。
+Rustで書いたWebAssemblyプラグインで、対応形式を増やせます。`tmiki plugin new`でテンプレートを作成し、`tmiki plugin test`でそれを検証します。仕様は[PLUGIN_SPEC.md](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md)にあります。
 
 </details>
 
 ## インストール
 
-**リリース版（配布用の実行ファイル）はまだありません。** いまはソースからビルドして使います。
+**リリース版（完成済みの実行ファイル）はまだありません。** 当面はソースからビルドしてください。
 
 <details open>
-<summary><b>ソースからビルドする</b></summary>
+<summary><b>ソースからビルド</b></summary>
 <br>
 
-必要なもの：Python 3.10 以上、[Rust](https://rustup.rs)、Windows では Visual Studio Build Tools の C++。
+Python 3.10以降、[Rust](https://rustup.rs)、およびWindowsではVisual Studio Build ToolsのC++コンポーネントが必要です。
 
 ```powershell
 git clone https://github.com/ao1607/tmiki
 cd tmiki
-pip install .\rust\tmi-accel        # 描画などのネイティブモジュール
-pip install .\rust\crates\tmi-cli   # コマンド tmiki
-pip install -e .                    # Python 側の本体
+pip install .\rust\tmi-accel        # ネイティブモジュール（レンダリングなど）
+pip install .\rust\crates\tmi-cli   # tmikiコマンド
+pip install -e .                    # Python部分
 tmiki --version
 ```
 
-Rust のビルドに数分かかります（その間 pip は何も表示しません）。PyPI には公開していないので、`pip install tmiki` のように名前では入れないでください。
+Rustのビルドには数分かかり、その間pipは何も表示しません。tmikiはPyPIに公開していないため、`pip install tmiki`のように名前を指定してインストールしないでください。
 
 </details>
 
@@ -130,15 +130,15 @@ Rust のビルドに数分かかります（その間 pip は何も表示しま�
 
 ## 対応形式
 
-| 形式 | 記録のしかた | diff | マージ |
+| 形式 | 記録方法 | diff | マージ |
 | --- | --- | --- | --- |
-| **CLIP STUDIO PAINT** `.clip` | レイヤーごと | レイヤー別まで | レイヤー単位で自動 |
-| **メディバンペイント・FireAlpaca** `.mdp` | レイヤーごと | レイヤー別まで | レイヤー単位で自動 |
-| **PNG · JPEG** | 1 枚の画像 | 絵で比較 | 自動 |
-| **GIF · BMP · TIFF · WebP · PSD**（合成画像） | 1 枚の画像 | 絵で比較 | 両方で変えたらどちらかを選ぶ |
-| **そのほか** | バイナリ | 変わったかどうか | どちらかを選ぶ |
+| **CLIP STUDIO PAINT** `.clip` | レイヤーごと | 各レイヤーまで | レイヤーごとに自動 |
+| **メディバンペイント・FireAlpaca** `.mdp` | レイヤーごと | 各レイヤーまで | レイヤーごとに自動 |
+| **PNG · JPEG** | 1枚の画像 | 画像で比較 | 自動 |
+| **GIF · BMP · TIFF · WebP · PSD**（合成画像） | 1枚の画像 | 画像で比較 | 両方で変更したらどちらか一方を選択 |
+| **その他** | バイナリ | 変更があったかどうかのみ | どちらか一方を選択 |
 
-PSD のレイヤーは今後の予定です。どれに入るかは拡張子ではなく中身で決まります。[詳しく](docs/MANUAL.md#対応フォーマット)
+PSDのレイヤーへの対応は予定しています。ファイルがどの行に属するかは、拡張子ではなく内容によって決まります。[詳しく](docs/MANUAL.md#対応フォーマット)
 
 ## 使い方
 
@@ -147,16 +147,16 @@ tmiki init
 tmiki add illust.clip
 tmiki commit -m "ラフ"
 
-tmiki diff --html illust.clip      # まだ記録していない変化をブラウザで見る
-tmiki commit -a -m "線画"          # 描き進めたら、そのたびに
+tmiki diff --html illust.clip      # まだ記録していない内容をブラウザで確認
+tmiki commit -a -m "線画"          # 描き進めるたびに
 
-tmiki switch -c try-purple         # 別の案はブランチで
+tmiki switch -c try-purple         # 別のアイデアはブランチで試す
 tmiki commit -a -m "紫案"
 tmiki switch main
 tmiki merge try-purple -m "紫案を採用"
 ```
 
-マージや巻き戻しで tmiki がファイルを書き換えたあと、描くアプリで開いたまま保存すると、古い内容に戻ってしまいます。開き直してから続けてください。tmiki も書き換えたファイルの一覧を出して知らせます。
+マージやロールバックでファイルが書き換えられた後、そのファイルを開いたままの描画アプリから保存すると、古い内容に戻ってしまいます。まずはファイルを開き直してください。tmikiは書き換えたファイルを一覧表示して知らせてくれます。
 
 ## ヘルプ
 
@@ -165,14 +165,14 @@ tmiki merge try-purple -m "紫案を採用"
 
 ## このプロジェクトについて
 
-**名前**：tmiki（ツミキ）は、レイヤーとコミットを積み上げる道具という意味です。開発中は tmi という名前だったので、Python のパッケージ・Rust の crate・リポジトリの中身（`.tmi/`）・環境変数（`TMI_*`）・設計の記録には旧名が残っています。
+**名称：** tmiki（ツミキ、積み木）は、レイヤーとコミットを積み上げるツールです。開発中はtmiと呼ばれていたため、Pythonパッケージ、Rustクレート、リポジトリ構成（`.tmi/`）、`TMI_*`変数、および設計メモには今も旧名称が使われています。
 
-**商標**：tmiki は個人の独立したプロジェクトで、CLIP STUDIO PAINT・メディバンペイント・FireAlpaca の開発元とは関係ありません。各名称は各社の商標です。
+**商標：** tmikiは個人の独立したプロジェクトであり、CLIP STUDIO PAINT、メディバンペイント、FireAlpacaの開発元とは提携していません。各名称はそれぞれの所有者の商標です。
 
 ## ライセンス
 
-tmiki は [GNU AGPL-3.0](LICENSE) です。誰でも無料で使え、仕事の絵を描くのに使うのも自由です。改造したものを配ったり、ネット越しのサービスとして提供したりするときは、そのソースを同じ AGPL-3.0 で公開する必要があります。
+tmikiは[GNU AGPL-3.0](LICENSE)ライセンスです。有償の仕事に使う場合も含め、誰でも無料で利用できます。改変版を配布したり、ネットワークサービスとして提供したりする場合は、そのソースコードもAGPL-3.0で公開する必要があります。
 
-プラグインを作るための部品は [MIT](LICENSE-MIT) です。`tmiki plugin new` が書き出すファイル一式と、その元（`rust/plugins/sdk`・`rust/crates/tmi-plugin-dev`・`rust/crates/tmi-plugin-tools/templates`・`rust/crates/tmi-format/wit`・PLUGIN_SPEC.md）が対象で、プラグインには好きなライセンスを付けられます。`rust/vendor/libsqlite3-sys` は同梱した外部のコードで、それぞれのライセンスに従います。
+プラグインを作るための部品は[MIT](LICENSE-MIT)です。`tmiki plugin new`が書き出すファイル一式とそのソース（`rust/plugins/sdk`、`rust/crates/tmi-plugin-dev`、`rust/crates/tmi-plugin-tools/templates`、`rust/crates/tmi-format/wit`、PLUGIN_SPEC.md）が対象で、プラグインには任意のライセンスを適用できます。`rust/vendor/libsqlite3-sys`は同梱したサードパーティ製のコードで、それぞれのライセンスに従います。
 
-<sub>AI ツール向け：<a href="CLAUDE.md">開発の手引き（英語）</a></sub>
+<sub>AIツール向け：<a href="CLAUDE.md">開発の手引き（英語）</a></sub>
