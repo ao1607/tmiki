@@ -25,9 +25,9 @@
 # `tmiki-py`.
 name: wheels
 
+# The Python wheels are for development (the parity tests); releases ship
+# the standalone executable, so a tag no longer runs this.
 on:
-  push:
-    tags: ["v*"]
   pull_request:
     paths:
       - "pyproject.toml"
