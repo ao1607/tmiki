@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="#ライセンス"><img src="https://img.shields.io/badge/license-AGPL--3.0-4A3B32" alt="AGPL-3.0"></a>
+  <a href="#ライセンス"><img src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-4A3B32" alt="MIT / Apache-2.0"></a>
   <a href="https://github.com/ao1607/tmiki/releases/latest"><img src="https://img.shields.io/github/v/release/ao1607/tmiki?include_prereleases&label=download&color=E2B77A" alt="ダウンロード"></a>
   <a href="https://github.com/ao1607/tmiki/commits/main"><img src="https://img.shields.io/github/last-commit/ao1607/tmiki?color=6C9BD2" alt="最終更新"></a>
 </p>
@@ -178,8 +178,6 @@ tmiki merge try-purple -m "紫案を採用"
 
 ## ライセンス
 
-tmikiは[GNU AGPL-3.0](LICENSE)ライセンスです。有償の仕事に使う場合も含め、誰でも無料で利用できます。改変版を配布したり、ネットワークサービスとして提供したりする場合は、そのソースコードもAGPL-3.0で公開する必要があります。
-
-プラグインを作るための部品は[MIT](LICENSE-MIT)です。`tmiki plugin new`が書き出すファイル一式とそのソース（`rust/plugins/sdk`、`rust/crates/tmi-plugin-dev`、`rust/crates/tmi-plugin-tools/templates`、`rust/crates/tmi-format/wit`、PLUGIN_SPEC.md）が対象で、プラグインには任意のライセンスを適用できます。`rust/vendor/libsqlite3-sys`は同梱したサードパーティ製のコードで、それぞれのライセンスに従います。
+tmikiは、[MIT License](LICENSE-MIT)または[Apache License 2.0](LICENSE-APACHE)のいずれかを選択して利用できます。`rust/vendor/libsqlite3-sys`は同梱したサードパーティ製のコードで、それぞれのライセンスに従います。
 
 <sub>AIツール向け：<a href="CLAUDE.md">開発の手引き（英語）</a></sub>
