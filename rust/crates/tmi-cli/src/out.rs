@@ -1,11 +1,7 @@
-//! What a native command prints, held until it is done, then written the
-//! way CPython's stdio would: text through the stream's encoding with
-//! "\n" as "\r\n" on Windows, raw bytes (`sys.stdout.buffer`) as they are.
-//!
-//! Holding everything lets a command change its mind: when it finds
-//! something it does not reproduce, nothing has been written and the
-//! whole command goes to Python. Progress lines (`TMI_PROGRESS=1`) are
-//! held the same way and written in their place among these.
+//! What a command prints, held until it is done, then written: text
+//! through the stream's encoding with "\n" as "\r\n" on Windows, raw bytes
+//! as they are. Progress lines (`TMI_PROGRESS=1`) are held the same way
+//! and written in their place among these.
 
 use std::io::{IsTerminal, Write};
 
@@ -37,19 +33,14 @@ fn with_progress_lines(mut events: Vec<(u64, Stream, Chunk)>) -> Vec<(u64, Strea
     events
 }
 
-/// How Python would encode a text stream.
+/// How a text stream is encoded.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Encoding {
-    /// UTF-8 (or a console, which Python writes as UTF-16 via WriteConsoleW).
+    /// UTF-8 (or a console, written as UTF-16 via WriteConsoleW).
     Utf8,
-    /// An ASCII-compatible legacy code page: ASCII text is safe, anything
-    /// else is left to Python (its codec and backslashreplace).
-    LegacyAscii,
-    /// Python's cp932 codec (the Japanese ANSI code page), with the
-    /// backslashreplace tmi.cli.main sets (stage 4b).
+    /// cp932 (the Japanese ANSI code page, which PowerShell and cmd read a
+    /// pipe as), characters it lacks as backslash escapes.
     Cp932,
-    /// Not reproduced (e.g. PYTHONIOENCODING=utf-16): Python runs it all.
-    Unknown,
 }
 
 impl Out {
@@ -67,34 +58,6 @@ impl Out {
 
     pub fn write_bytes(&mut self, data: Vec<u8>) {
         self.events.push((crate::progress::next_seq(), Stream::Stdout, Chunk::Bytes(data)));
-    }
-
-    fn has_non_ascii(&self, stream: Stream) -> bool {
-        self.events
-            .iter()
-            .any(|(_, s, c)| *s == stream && matches!(c, Chunk::Text(t) if !t.is_ascii()))
-            || (stream == Stream::Stderr && crate::progress::held_non_ascii())
-    }
-
-    fn has_bytes(&self) -> bool {
-        self.events.iter().any(|(_, _, c)| matches!(c, Chunk::Bytes(_)))
-    }
-
-    /// Whether this output can be written exactly as Python would (standing
-    /// alone there is no one else to write it: always).
-    pub fn writable(&self) -> bool {
-        if !crate::pyenv::fallback() {
-            return true;
-        }
-        for stream in [Stream::Stdout, Stream::Stderr] {
-            match encoding(stream) {
-                Encoding::Utf8 | Encoding::Cp932 => {}
-                Encoding::LegacyAscii if !self.has_non_ascii(stream) => {}
-                _ => return false,
-            }
-        }
-        // Raw bytes on a console: Python's console writer would decode them.
-        !(self.has_bytes() && is_console(Stream::Stdout))
     }
 
     /// Before a child process (a hook) writes to the same streams: write
@@ -169,7 +132,7 @@ pub fn text_bytes(stream: Stream, t: &str) -> Vec<u8> {
 static CP932: &[u8] = include_bytes!("cp932.bin");
 
 /// Python's `text.encode("cp932", "backslashreplace")` (the table is
-/// tools/gen_cp932.py's).
+/// recorded from Python's cp932 codec).
 pub fn cp932_encode(text: &str) -> Vec<u8> {
     let n = CP932.len() / 6;
     let record = |i: usize| {
@@ -235,54 +198,11 @@ pub fn is_tty(stream: Stream) -> bool {
     }
 }
 
-fn env_nonempty(name: &str) -> Option<String> {
-    std::env::var(name).ok().filter(|v| !v.is_empty())
-}
-
-/// The names Python's codec registry takes for cp932.
-fn is_cp932_name(name: &str) -> bool {
-    let n: String = name.trim().to_ascii_lowercase().chars().map(|c| if c == '-' || c == ' ' { '_' } else { c }).collect();
-    matches!(n.as_str(), "cp932" | "932" | "ms932" | "mskanji" | "ms_kanji")
-}
-
-fn is_utf8_name(name: &str) -> bool {
-    let n: String = name.trim().to_ascii_lowercase().chars().filter(|c| *c != '-' && *c != '_').collect();
-    matches!(n.as_str(), "utf8" | "u8" | "utf" | "cp65001")
-}
-
-/// The encoding CPython 3.13 gives `sys.stdout` / `sys.stderr`. Standing
-/// alone, what Python would leave to its own codecs is written as UTF-8.
+/// The encoding of a stream: a Windows console takes UTF-16 (UTF-8 here),
+/// a pipe or file the ANSI code page when it is cp932, else UTF-8.
 pub fn encoding(stream: Stream) -> Encoding {
-    let e = python_encoding(stream);
-    if !crate::pyenv::fallback() && matches!(e, Encoding::Unknown | Encoding::LegacyAscii) {
-        return Encoding::Utf8;
-    }
-    e
-}
-
-fn python_encoding(stream: Stream) -> Encoding {
-    if env_nonempty("PYTHONLEGACYWINDOWSSTDIO").is_some() {
-        return Encoding::Unknown;
-    }
     if cfg!(windows) && is_console(stream) {
         return Encoding::Utf8;
-    }
-    if let Some(spec) = env_nonempty("PYTHONIOENCODING") {
-        let enc = spec.split(':').next().unwrap_or("");
-        if !enc.is_empty() {
-            return if is_utf8_name(enc) {
-                Encoding::Utf8
-            } else if is_cp932_name(enc) {
-                Encoding::Cp932
-            } else {
-                Encoding::Unknown
-            };
-        }
-    }
-    match std::env::var("PYTHONUTF8").ok().as_deref() {
-        Some("1") => return Encoding::Utf8,
-        Some("0") | None | Some("") => {}
-        Some(_) => return Encoding::Unknown,
     }
     locale_encoding()
 }
@@ -291,26 +211,14 @@ fn python_encoding(stream: Stream) -> Encoding {
 fn locale_encoding() -> Encoding {
     // SAFETY: GetACP takes no arguments.
     let acp = unsafe { windows_sys::Win32::Globalization::GetACP() };
-    match acp {
-        65001 => Encoding::Utf8,
-        932 => Encoding::Cp932,
-        _ => Encoding::LegacyAscii,
+    if acp == 932 {
+        Encoding::Cp932
+    } else {
+        Encoding::Utf8
     }
 }
 
 #[cfg(not(windows))]
 fn locale_encoding() -> Encoding {
-    let value = ["LC_ALL", "LC_CTYPE", "LANG"].iter().find_map(|k| env_nonempty(k));
-    match value.as_deref() {
-        // the C locale: Python coerces it and enables UTF-8 mode
-        None | Some("C") | Some("POSIX") => Encoding::Utf8,
-        Some(v) => {
-            let lower = v.to_ascii_lowercase();
-            if lower.contains("utf-8") || lower.contains("utf8") {
-                Encoding::Utf8
-            } else {
-                Encoding::LegacyAscii
-            }
-        }
-    }
+    Encoding::Utf8
 }

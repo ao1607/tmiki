@@ -1,6 +1,6 @@
 # tmiki 利用の手引き
 
-> tmiki は開発中の旧名を tmi といいます。コマンド名は `tmiki` ですが、Python のパッケージ (`python -m tmi`)・Rust の crate (`tmi-*`)・リポジトリの中身 (`.tmi/`・`.tmiattributes`)・環境変数 (`TMI_*`) は `tmi` のままです。
+> tmiki は開発中の旧名を tmi といいます。コマンド名は `tmiki` ですが、Rust の crate (`tmi-*`)・リポジトリの中身 (`.tmi/`・`.tmiattributes`)・環境変数 (`TMI_*`) は `tmi` のままです。
 
 レイヤー認識の3-wayマージ・ビジュアル diff・サムネ必須コミットを備えた、イラストファイル (CLIP / MDP2 / PNG / JPEG) 向けの Git ライクなバージョン管理システム。
 
@@ -15,12 +15,6 @@ cd rust
 cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 ```
 
-### 開発用の Python パッケージ
-
-リポジトリにはPythonパッケージ（`tmi`）とリファレンス実装（`tmiref/`）も含まれています。これらは開発用で、テストでは実行ファイルと照合します。`TMI_PYTHON` にパッケージがインストール済みのPythonを指定すると、実行ファイルは自身で処理できない稀なコマンドラインをそのPythonに渡します。`TMI_PYTHON` がない場合、そのようなコマンドラインは「not supported」とその理由とともに停止します。
-
-テストとリファレンス実装には numpy、Pillow、`zstandard` (`pip install -e .[test]`) が必要であり、Python パッケージにはネイティブモジュール (`pip install .\rust\tmi-accel`) が必要です。
-
 形式プラグインのホスト (`rust\crates\tmi-plugin-host`、PLUGINS.md の P5) は wasmtime ごと `tmiki` の実行ファイルに入っています。`tmi-cli` のビルドに追加の手順はありませんが、Rust のテスト (`cargo test --workspace`) はテスト用のプラグイン (`rust\plugins`。独立した workspace) を WebAssembly にビルドして使うので、先に `rustup target add wasm32-wasip2` が要ります。手で作るときは `cargo build --release --target wasm32-wasip2 --manifest-path rust\plugins\Cargo.toml` です。
 
 ### 困ったとき
@@ -29,9 +23,6 @@ cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 
 | 変数 | 働き |
 | --- | --- |
-| `TMI_DEBUG_FORWARD=1` | `TMI_PYTHON` が設定されている場合：コマンドを Python に渡した理由を1行で出力します |
-| `TMI_NATIVE=0` | `TMI_PYTHON` が設定されている場合：すべてのコマンドを Python で実行します（実行ファイルの結果と比較するため） |
-| `TMI_PYTHON=<python のパス>` | 開発用：サポート対象外のコマンドラインを渡すためのPython（これがないとtmikiはPythonを使用しません） |
 | `TMI_PROGRESS=1` / `0` | 進捗を端末以外にも出す / 端末でも出さない (下記) |
 | `TMIHUB_TIMEOUT=<秒>` | HTTPS リモート (tmihub) との通信で、接続・送信・受信のそれぞれが進まないまま待つ秒数 (既定 300)。超えると「tmihub stopped answering」で止まります。少しずつでも進んでいる転送は、どれだけ長くても切りません |
 
@@ -272,7 +263,7 @@ tmiki hook run post-commit       # 手動で発火
 
 ## 形式プラグイン
 
-tmi が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader。PLUGINS.md) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。プラグインを動かすのは `tmi` の実行ファイルだけです (`python -m tmi` はプラグイン形式のファイルを断ります)。
+tmi が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader。PLUGINS.md) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。
 
 ```powershell
 tmiki plugin add ora.wasm          # .tmiplugins/ora.wasm に置き、.tmiattributes に「*.ora format=plugin:ora」を足して両方ステージ
@@ -311,7 +302,7 @@ tmiki merge side                                     # 両側で別のレイヤ�
 - プラグインが無い・読めない・信頼されていないとき: `add` / `commit -a` / `mv` / `stash push` は止まります (不透明として黙って記録はしません)。`status` は「(layer details need plugin 'ora')」、作業ツリーとの `diff` はファイル単位の比較になり、コミット同士の `diff`・`log`・`show`・`switch`・`checkout`・ファイル全体の `restore` はそのまま使えます。`ls-layers` は版を付ければ記録済みの木を出します (`tmiki ls-layers art.ora HEAD`。版なしだと、作業ツリーのファイルが記録と違うときに取り込もうとして止まります)。両側で変えたファイルのマージは衝突になり、`--ours` / `--theirs` で選びます。
 - プラグインをやめるとき: `tmiki plugin remove ora` は `.tmiplugins/ora.wasm` を消し、`.tmiattributes` から `format=plugin:ora` を外し、そのプラグインで読んでいた追跡中のファイルを作業ツリーの中身から取り込み直します (ORA なら不透明なファイルになります)。どれもステージされるので、`tmiki commit` で確定します。前の commit の記録はそのままです (`tmiki ls-layers art.ora HEAD~1`)。`.tmiplugins/ora.wasm` だけを `tmiki rm` すると `.tmiattributes` に対応づけが残り、以後そのファイルを add できなくなるので、警告が出ます。
 - `plugin.fuel` (1 回の呼び出しの命令数)・`plugin.timeout` (秒)・`plugin.maxMemory` (バイト。`512m` のような書き方も可) で上限を変えられます。コンパイル結果は `%LOCALAPPDATA%\tmi\plugin-cache` (`TMI_PLUGIN_CACHE` で変更) にキャッシュします。
-- テスト用の ORA プラグインは `python tools\build_test_plugins.py --ora` で作れます (書き戻しのできる 0.3.0。`--ora-version 0.1.0 --read-only` で読むだけの版。`rust\plugins`。`rustup target add wasm32-wasip2` が要ります)。
+- テスト用の ORA プラグインは、`rust\plugins` で `cargo build --release --target wasm32-wasip2 -p tmi-plugin-ora` を実行すると作れます (書き戻しのできる 0.3.0。環境変数 `TMI_ORA_VERSION=0.1.0` と `TMI_ORA_READ_ONLY=1` を付けると読むだけの版。`rustup target add wasm32-wasip2` が要ります)。
 
 ### プラグインを作る
 
@@ -376,6 +367,6 @@ tmiki config --unset diff.retain
 | `gc [--prune <spec>]` | 到達不能オブジェクトの掃除 |
 | `recover` / `reflog` `[--as branch] [rev]` / `recover --files` / `recover --file N` | HEAD 履歴の表示 / 復旧、自動退避ファイルの復元 |
 | `config [--global] [--list\|--unset] [key [value]]` | 設定 |
-| `--version` | tmi と tmi_accel の版 (バグ報告用) |
+| `--version` | tmiki の版 (バグ報告用) |
 
 MVP の範囲は Git のメインライン (`init` / `clone` / `status` / `add` / `commit` / `log` / `diff` / `branch` / `switch` / `merge` / `restore` / `tag` / `remote` / `fetch` / `pull` / `push`) です。

@@ -51,7 +51,6 @@ pub fn merge(argv: &[String], out: &mut Out) -> CmdResult {
     let Some(rev) = rev else {
         return Err(RepoError::runtime("merge requires a revision (or --abort)"));
     };
-    writes::no_plugins()?;
     let progress = Progress::new();
     let report = |msg: &str| progress.report(msg);
     let before = repo.read_backups()?.len();

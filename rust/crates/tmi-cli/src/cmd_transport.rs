@@ -152,7 +152,6 @@ pub fn pull(argv: &[String], out: &mut Out) -> CmdResult {
     let branch = args::get_str(&m, "branch");
     let repo = Repo::open()?;
     writes::begin_locked(&repo)?;
-    writes::no_plugins()?;
     repo.prepare_identity()?;
     let backups_before = repo.read_backups()?.len();
     let progress = Progress::new();
@@ -169,8 +168,6 @@ pub fn pull(argv: &[String], out: &mut Out) -> CmdResult {
         let ops::Pulled::Merge { incoming, operation, message } = pulled else {
             return Ok((pulled.mode().to_string(), pulled.commit().to_string(), None));
         };
-        // where Python goes on if this merge goes to it
-        progress.checkpoint();
         // repo.merge(incoming, message, operation=...) (stage 4a's merge)
         use tmi_diffmerge::merge::{self, MergeOutcome};
         let mut ctx = merge::new_ctx(&repo)?;
@@ -187,15 +184,7 @@ pub fn pull(argv: &[String], out: &mut Out) -> CmdResult {
             MergeOutcome::Conflict(paths, _, dir) => ("conflict".into(), String::new(), Some((paths, dir))),
         })
     })();
-    if pulled.as_ref().is_err_and(|e| e.is_forward()) && !tmi_repo::fsio::mutated() {
-        if fetched {
-            // Python takes over after its fetch (cli.py cmd_pull): the
-            // fetch's progress lines are out, and its clock goes on there
-            progress.hand_over();
-            crate::forward::set_env("TMI_PULL_FETCHED", &remote);
-        }
-        return pulled.map(|_| 0);
-    }
+    let _ = fetched;
     for line in import_warnings {
         out.eprintln(line);
     }

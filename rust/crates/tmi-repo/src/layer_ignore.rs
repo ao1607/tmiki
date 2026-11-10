@@ -59,8 +59,7 @@ pub fn py_repr(text: &str) -> Result<String> {
                 out.push(c);
             }
             c if (c as u32) < 0x20 || c as u32 == 0x7f => out.push_str(&format!("\\x{:02x}", c as u32)),
-            c if c.is_ascii() || c.is_alphanumeric() || !crate::py::python_fallback() => out.push(c),
-            _ => return Err(fwd("repr of a character str.isprintable decides")),
+            c => out.push(c),
         }
     }
     out.push(quote);

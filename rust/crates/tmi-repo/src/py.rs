@@ -6,24 +6,14 @@
 use std::path::{Component, Path, PathBuf};
 
 /// `str.splitlines()`.
-/// Whether the executable may hand what it does not reproduce to Python:
-/// only when `TMI_PYTHON` names one (development and the parity tools).
-/// Without it tmiki stands alone, and the places that would have gone to
-/// Python for exact parity (casefold of cased letters, `repr` of rare
-/// characters, ...) decide by themselves.
-pub fn python_fallback() -> bool {
-    std::env::var_os("TMI_PYTHON").is_some_and(|v| !v.is_empty())
-}
-
-/// `str.casefold()` close enough when Python is not there to ask:
-/// Unicode lowercase (kana and kanji have no case and stay as they are).
+/// `str.casefold()` as tmiki folds names: Unicode lowercase (kana and
+/// kanji have no case and stay as they are), `ß` as `ss`.
 pub fn casefold_approx(s: &str) -> String {
     s.chars().flat_map(char::to_lowercase).collect::<String>().replace('ß', "ss")
 }
 
-/// `repr(s)` standing alone: Python's choice of quote and its escapes of
-/// backslash, the quote and control characters; every other character as
-/// itself.
+/// `repr(s)`: Python's choice of quote and its escapes of backslash, the
+/// quote and control characters; every other character as itself.
 pub fn repr_lenient(s: &str) -> String {
     let quote = if s.contains('\'') && !s.contains('"') { '"' } else { '\'' };
     let mut out = String::with_capacity(s.len() + 2);

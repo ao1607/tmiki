@@ -1,6 +1,6 @@
 //! argparse's errors for the command lines it refuses (stage 4b): Python
-//! 3.13's `_parse_known_args` run over the table tools/gen_cli_help.py
-//! records (argparse_table.rs), far enough to know whether it raises and
+//! 3.13's `_parse_known_args` run over the parser table
+//! (argparse_table.rs), far enough to know whether it raises and
 //! with which text. Then the front door prints what `parser.error()` and
 //! `parse_args()` print (the usage, "<prog>: error: <message>") and exits
 //! with 2, instead of starting Python to say it.
@@ -15,7 +15,7 @@
 //! `repr()` is not reproduced, or a parser outside the table: `Unsure`
 //! (the command goes on as before: natively, or to Python).
 
-use crate::argparse_table::{PAct, PParser, NESTED, PARSERS, PYTHON_VERSION, TOP_CHOICES, TOP_USAGE};
+use crate::argparse_table::{PAct, PParser, NESTED, PARSERS, TOP_CHOICES, TOP_USAGE};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Verdict {
@@ -481,25 +481,16 @@ fn match_positionals(nargs: &[&str], pattern: &[u8]) -> Result<Option<Vec<usize>
     Ok(go(nargs, pattern, 0, &mut out).then_some(out))
 }
 
-fn same_python() -> bool {
-    let version = crate::pyenv::python_version();
-    version.map(|v| v.split('.').take(2).collect::<Vec<_>>().join(".")).as_deref() == Some(PYTHON_VERSION)
-}
-
 /// What argparse prints for the whole command line `argv` (without the
 /// program name), when it refuses it and that is decided here.
 pub fn for_argv(argv: &[String]) -> Option<String> {
     let Some(first) = argv.first() else {
-        return (same_python() && width_80())
-            .then(|| format!("{TOP_USAGE}tmiki: error: the following arguments are required: command\n"));
+        return Some(format!("{TOP_USAGE}tmiki: error: the following arguments are required: command\n"));
     };
     if first.starts_with('-') {
         return None; // top-level options: --version, -h, or argparse's own reading
     }
     if !TOP_CHOICES.contains(&first.as_str()) {
-        if !(same_python() && width_80()) {
-            return None;
-        }
         let shown = repr(first).ok()?;
         return Some(format!(
             "{TOP_USAGE}tmiki: error: argument command: invalid choice: {shown} (choose from {})\n",
@@ -519,21 +510,12 @@ pub fn for_argv(argv: &[String]) -> Option<String> {
     }
 }
 
-fn width_80() -> bool {
-    match std::env::var("COLUMNS").ok().as_deref() {
-        None | Some("") => !crate::out::is_console(crate::out::Stream::Stdout),
-        Some("80") => true,
-        Some(_) => false,
-    }
-}
-
 /// What argparse does with `tmi <path...> <args...>`: `path` names a
 /// parser without subparsers (`["mv"]`, `["remote", "add"]`).
 pub fn check(path: &[&str], args: &[String]) -> Verdict {
     let Some(p) = PARSERS.iter().find(|p| p.path == path) else { return Verdict::Unsure };
     match (Parser { p }).parse(args) {
         Ok(extras) if extras.is_empty() => Verdict::Ok,
-        Ok(_) | Err(Fail::Arg(_)) if !(width_80() && same_python()) => Verdict::Unsure,
         Ok(extras) => Verdict::Error(format!("{TOP_USAGE}tmiki: error: unrecognized arguments: {}\n", extras.join(" "))),
         Err(Fail::Arg(msg)) => Verdict::Error(format!("{}{}: error: {msg}\n", p.usage, p.prog)),
         Err(Fail::Unsure) => Verdict::Unsure,

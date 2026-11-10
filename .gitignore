@@ -1,16 +1,9 @@
 .tmi/
 .tmi-diff/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-*.egg-info/
 /build/
 .*-smoke-*/
 .*-smoke-*
 .test-tmp/
 example/
-.venv/
 .claude/worktrees/
-.test-durations.json
-.render-corpus-durations.json
 .test-images/

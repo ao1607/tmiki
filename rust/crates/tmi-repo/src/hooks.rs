@@ -1,25 +1,35 @@
-//! tmi/hooks.py: `.tmi/hooks/<name>` scripts run at fixed points.
+//! `.tmi/hooks/<name>` scripts run at fixed points.
 //!
-//! Run as Python runs them: the same environment plus `TMI_REPO`,
+//! Run with the same environment plus `TMI_REPO`,
 //! `TMI_HOOK` and the event's variables (on Windows with the variable
 //! names upper-cased, as `os.environ.copy()` hands them on), stdin,
-//! stdout and stderr inherited. A `.py` hook runs with the Python that
-//! `python -m tmi` would use (see [`set_python`]), a `.ps1` with
+//! stdout and stderr inherited. A `.py` hook (a script the user wrote) runs
+//! with the Python on PATH (`py` / `python` on Windows, `python3` /
+//! `python` elsewhere); tmiki itself needs no Python. A `.ps1` runs with
 //! `powershell.exe -ExecutionPolicy Bypass -File`, anything else directly.
 
 use crate::error::{RepoError, Result};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 pub const SUPPORTED_HOOKS: [&str; 6] = ["pre-commit", "post-commit", "pre-push", "post-merge", "pre-switch", "post-switch"];
 
 const WIN_HOOK_SUFFIXES: [&str; 5] = [".py", ".bat", ".cmd", ".ps1", ".exe"];
 
-static PYTHON: OnceLock<PathBuf> = OnceLock::new();
-
-/// The interpreter for `.py` hooks (Python's `sys.executable`).
-pub fn set_python(python: PathBuf) {
-    let _ = PYTHON.set(python);
+/// The interpreter for a user's `.py` hook: the first of the usual names
+/// found on PATH.
+fn python_for_hooks() -> PathBuf {
+    let names: &[&str] = if cfg!(windows) { &["py.exe", "python.exe"] } else { &["python3", "python"] };
+    if let Some(path) = std::env::var_os("PATH") {
+        for name in names {
+            for dir in std::env::split_paths(&path) {
+                let c = dir.join(name);
+                if c.is_file() {
+                    return c;
+                }
+            }
+        }
+    }
+    PathBuf::from("python")
 }
 
 /// `hook_path(repo_dir, name)`.
@@ -116,8 +126,7 @@ pub fn run(
     let suffix = suffix_lower(&path);
     let mut cmd = match suffix.as_str() {
         ".py" => {
-            let python = PYTHON.get().cloned().unwrap_or_else(|| PathBuf::from("python"));
-            let mut c = std::process::Command::new(python);
+            let mut c = std::process::Command::new(python_for_hooks());
             c.arg(&path);
             c
         }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "tmi-accel"]
+members = ["crates/*"]
 # plugins/: the test plugins, their own workspace (built for wasm32-wasip2)
 exclude = ["vendor", "plugins"]
 

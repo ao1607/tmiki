@@ -13,7 +13,6 @@ on:
   pull_request:
     paths:
       - "rust/**"
-      - "tmi/cli.py"
       - ".github/workflows/plugin-templates.yml"
   workflow_dispatch:
 

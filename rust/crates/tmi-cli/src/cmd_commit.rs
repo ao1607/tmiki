@@ -1,12 +1,10 @@
 //! `tmiki commit` (cli.py `cmd_commit`): `-m`, `-a` (repo.py
 //! `stage_all_modified` through tmi-import), `--amend`, `--allow-empty`
-//! (stage 3b-2), running the pre- and post-commit hooks (3b-1). With a
-//! merge in progress or `tmi.plugins` entry points installed, it goes to
-//! Python.
+//! (stage 3b-2), running the pre- and post-commit hooks (3b-1).
 
 use crate::args::{self, flag, opt};
 use crate::cmd_add::emit_warnings;
-use crate::gates::{self, fwd};
+use crate::gates::fwd;
 use crate::out::Out;
 use crate::progress::Progress;
 use crate::CmdResult;
@@ -46,9 +44,6 @@ pub fn commit(argv: &[String], out: &mut Out) -> CmdResult {
         return Err(RepoError::runtime("cannot amend during a merge; finish the merge with 'tmiki commit' or discard it"));
     }
     crate::writes::begin_locked(&repo)?;
-    if gates::plugins_installed() {
-        return Err(fwd("tmi.plugins entry points installed (or the Python environment is unknown)"));
-    }
     preflight(&repo)?;
     let progress = Progress::new();
     let report = |msg: &str| progress.report(msg);

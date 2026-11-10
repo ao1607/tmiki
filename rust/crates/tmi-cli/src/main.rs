@@ -1,14 +1,8 @@
-//! `tmi`, the Rust front door (RUST_MIGRATION.md 3a, 3b-1).
+//! `tmiki`, the command line: every command runs here.
 //!
-//! The commands it reproduces exactly run here: the read-only ones (log,
-//! show, listings, config get, reflog, status) and the writes that need no
-//! format import (branch / tag / remote / config changes, switch, checkout,
-//! restore of whole files, reset, rm, stash apply / pop / drop / clear, gc,
-//! recover). Everything else, and every case one of them does not
-//! reproduce, runs `python -m tmi` with the same argv, stdin, stdout,
-//! environment and exit code. A write command decides that before it
-//! writes anything.
-
+//! A command line it cannot serve (a rare argument form, a corrupted
+//! record) stops with "tmiki: error: not supported: <why>" before it writes
+//! anything; argument errors exit 2 as argparse's did.
 mod args;
 mod argparse_errors;
 mod argparse_table;
@@ -35,14 +29,12 @@ mod cmd_stash;
 mod cmd_status;
 mod cmd_transport;
 mod cmd_worktree;
-mod forward;
 mod help_text;
 mod logfilter;
 mod gates;
 mod interrupt;
 mod out;
 mod progress;
-mod pyenv;
 mod transport_errors;
 mod writes;
 
@@ -50,45 +42,48 @@ use out::Out;
 use std::ffi::OsString;
 use tmi_repo::RepoError;
 
-/// The result of a native command.
-pub enum Outcome {
-    /// Exit code; the output is in the `Out` buffer.
-    Done(i32),
-    /// Run the command in Python instead.
-    Forward(String),
-}
-
 pub type CmdResult = Result<i32, RepoError>;
 
-/// Run `argv[1..]` natively if this binary serves it.
-fn run_native(argv: &[String], out: &mut Out) -> Outcome {
+/// What a command line this executable does not take on prints.
+fn unsupported(out: &mut Out, why: &str) -> i32 {
+    if why.contains("argparse") || why.starts_with("argument error") || why.starts_with("invalid choice") {
+        out.eprintln(format!("tmiki: error: these arguments are not accepted ({why}); see 'tmiki -h'"));
+        return 2;
+    }
+    out.eprintln(format!("tmiki: error: not supported: {why}"));
+    1
+}
+
+/// Run the command `argv` (without the program name): its exit code, the
+/// output held in `out`.
+fn run(argv: &[String], out: &mut Out) -> i32 {
     // `plugin dev <program> ...`: the program's own arguments (and the tmi
     // command after `--`) are not argparse's (P8; `-h` still is)
     if let [plugin, dev, program, ..] = argv {
         if plugin == "plugin" && dev == "dev" && program != "-h" && program != "--help" {
             return match cmd_plugin_dev::dev(&argv[2..], out) {
-                Ok(code) => Outcome::Done(code),
+                Ok(code) => code,
                 Err(e) => {
                     out.eprintln(format!("tmiki: error: {}", e.message().unwrap_or_default()));
-                    Outcome::Done(1)
+                    1
                 }
             };
         }
     }
-    // argparse refuses the command line before anything runs (stage 4b)
+    // argparse's refusals, before anything runs (stage 4b)
     if let Some(text) = argparse_errors::for_argv(argv) {
         out.eprintln(text.strip_suffix('\n').unwrap_or(&text));
-        return Outcome::Done(2);
+        return 2;
     }
     let Some(command) = argv.first() else {
-        return Outcome::Forward("no command".into());
+        return unsupported(out, "no command");
     };
     let rest = &argv[1..];
     if matches!(
         command.as_str(),
         "add" | "commit" | "status" | "mv" | "diff" | "merge" | "restore" | "stash" | "pull" | "clone" | "fetch" | "push" | "plugin"
     ) {
-        // tmi_accel's pool: deep stacks for nested rayon joins (tmi-render).
+        // deep stacks for nested rayon joins (tmi-render)
         let _ = rayon::ThreadPoolBuilder::new().stack_size(32 << 20).build_global();
     }
     let result = match command.as_str() {
@@ -114,7 +109,6 @@ fn run_native(argv: &[String], out: &mut Out) -> Outcome {
         "ls-layers" => cmd_lslayers::ls_layers(rest, out),
         "add" => cmd_add::add(rest, out),
         "commit" => cmd_commit::commit(rest, out),
-        // stage 4b: transport
         "init" => cmd_transport::init(rest, out),
         "clone" => cmd_transport::clone(rest, out),
         "fetch" => cmd_transport::fetch(rest, out),
@@ -122,71 +116,36 @@ fn run_native(argv: &[String], out: &mut Out) -> Outcome {
         "pull" => cmd_transport::pull(rest, out),
         "diff" => cmd_diff::diff(rest, out),
         "merge" => cmd_merge::merge(rest, out),
-        // PLUGINS.md P6: the executable's own (Python refuses it)
         "plugin" => cmd_plugin::plugin(rest, out),
-        _ => return Outcome::Forward(format!("{command} is not native")),
+        _ => return unsupported(out, &format!("the command {command}")),
     };
     match result {
-        Ok(code) => Outcome::Done(code),
+        Ok(code) => code,
         Err(RepoError::Forward(why)) if tmi_repo::fsio::mutated() => {
-            // Too late to hand over: the repository has changed.
-            out.eprintln(format!("tmiki: error: {why} (the native command had already started writing)"));
-            Outcome::Done(1)
+            out.eprintln(format!("tmiki: error: not supported: {why} (the command had already started writing)"));
+            1
         }
-        Err(RepoError::Forward(why)) => Outcome::Forward(why),
+        Err(RepoError::Forward(why)) => unsupported(out, &why),
         Err(e) => {
-            // tmi.cli.main: print(f"tmiki: error: {exc}", file=sys.stderr); return 1
             out.eprintln(format!("tmiki: error: {}", e.message().unwrap_or_default()));
-            Outcome::Done(1)
+            1
         }
     }
 }
 
 fn main() {
-    let argv: Vec<OsString> = std::env::args_os().collect();
-    if std::env::var_os(forward::GUARD).is_some() {
-        eprintln!(
-            "tmiki: error: the Python fallback started the tmi executable again ({} is set); \
-             point TMI_PYTHON at a Python with tmi installed",
-            forward::GUARD
-        );
+    let argv: Vec<OsString> = std::env::args_os().skip(1).collect();
+    let Some(args) = argv.iter().map(|a| a.clone().into_string().ok()).collect::<Option<Vec<String>>>() else {
+        eprintln!("tmiki: error: not supported: an argument that is not valid Unicode");
         std::process::exit(1);
-    }
-    let native_off = std::env::var("TMI_NATIVE").is_ok_and(|v| v.trim() == "0");
-    let utf8: Option<Vec<String>> = argv[1..].iter().map(|a| a.clone().into_string().ok()).collect();
-    if utf8.is_none() {
-        forward::forward_or_fail(&argv, "an argument that is not valid Unicode");
-    }
-    if let (false, Some(args)) = (native_off, utf8) {
-        tmi_repo::hooks::set_python(pyenv::python_for_hooks());
-        interrupt::install();
-        // a question on the terminal holds the progress spinner (issue #48)
-        tmi_repo::trust::set_prompt_hooks(progress::pause_active, progress::resume_active);
-        let mut out = Out::default();
-        let outcome = run_native(&args, &mut out);
-        // index.lock (issue #35) is the native command's alone: gone before
-        // the command ends or goes to Python, which takes its own.
-        tmi_repo::lockfile::release_all();
-        match outcome {
-            Outcome::Done(code) if out.writable() || tmi_repo::fsio::mutated() => {
-                forward::log_invocation(&format!("native\t{}", args.first().map_or("", String::as_str)));
-                out.flush();
-                std::process::exit(code);
-            }
-            Outcome::Done(_) => {
-                forward::log_reason("output needs Python's encoder");
-                forward::forward_or_fail(&argv, "output needs Python's encoder");
-            }
-            Outcome::Forward(why) => {
-                forward::log_reason(&why);
-                // standing alone, what was printed before the command gave up
-                // (warnings) still goes out with the error
-                if !pyenv::fallback() {
-                    out.flush();
-                }
-                forward::forward_or_fail(&argv, &why);
-            }
-        }
-    }
-    forward::forward_or_fail(&argv, "TMI_NATIVE=0");
+    };
+    interrupt::install();
+    // a question on the terminal holds the progress spinner (issue #48)
+    tmi_repo::trust::set_prompt_hooks(progress::pause_active, progress::resume_active);
+    let mut out = Out::default();
+    let code = run(&args, &mut out);
+    // index.lock (issue #35) is the command's alone: gone before it ends
+    tmi_repo::lockfile::release_all();
+    out.flush();
+    std::process::exit(code);
 }

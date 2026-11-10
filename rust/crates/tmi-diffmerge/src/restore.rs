@@ -30,9 +30,6 @@ pub fn casefold(s: &str) -> Result<String> {
             let mut upper = c.to_uppercase();
             let uncased = lower.next() == Some(c) && lower.next().is_none() && upper.next() == Some(c) && upper.next().is_none();
             if !uncased {
-                if tmi_repo::py::python_fallback() {
-                    return Err(fwd("casefold() of a cased non-ASCII letter"));
-                }
                 out.push_str(&tmi_repo::py::casefold_approx(&c.to_string()));
                 continue;
             }

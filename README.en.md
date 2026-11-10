@@ -129,7 +129,7 @@ cd tmiki\rust
 cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 ```
 
-The build takes several minutes. The Python package in the repository is the reference implementation that the tests compare against; tmiki itself does not need it.
+The build takes several minutes.
 
 </details>
 
@@ -172,7 +172,7 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 
 ## About
 
-**Name:** tmiki (*tsumiki*, building blocks) stacks up layers and commits. It was called tmi while in development, so the Python package, the Rust crates, the repository layout (`.tmi/`), the `TMI_*` variables and the design notes still use the old name.
+**Name:** tmiki (*tsumiki*, building blocks) stacks up layers and commits. It was called tmi while in development, so the Rust crates, the repository layout (`.tmi/`), the `TMI_*` variables and the design notes still use the old name.
 
 **Trademarks:** tmiki is an independent personal project, not affiliated with the makers of CLIP STUDIO PAINT, MediBang Paint or FireAlpaca. The names are trademarks of their owners.
 

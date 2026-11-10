@@ -9,14 +9,10 @@ use tmi_repo::clock;
 use tmi_repo::{RepoError, Result};
 use tmi_store::json::Value;
 
-/// `str.casefold()` (the table of the Python version recorded with it).
+/// `str.casefold()` (the table in casefold_table.rs, Unicode 15.1).
 pub fn casefold(s: &str) -> Result<String> {
     if s.is_ascii() {
         return Ok(s.to_ascii_lowercase());
-    }
-    let version = crate::pyenv::python_version().ok_or_else(|| fwd("casefold: Python version unknown"))?;
-    if version.split('.').take(2).collect::<Vec<_>>().join(".") != crate::casefold_table::PYTHON_VERSION {
-        return Err(fwd("casefold table of another Python version"));
     }
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {

@@ -740,7 +740,7 @@ pub fn info() -> Info {
         id: "ora",
         // TMI_ORA_VERSION at build time: a second version of the same
         // reader for the conformance scenario `plugins` (an upgrade, a
-        // merge of records two versions made); tools/build_test_plugins.py
+        // merge of records two versions made)
         version: match option_env!("TMI_ORA_VERSION") {
             Some(v) => v,
             None => "0.3.0",

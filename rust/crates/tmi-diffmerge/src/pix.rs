@@ -571,17 +571,6 @@ pub fn layer_blob_to_png(data: &[u8], limits: &Limits) -> Result<Vec<u8>> {
 /// Python picks; Forward for characters whose printability (and so
 /// escaping) is not decided here.
 pub fn py_repr(s: &str) -> tmi_repo::Result<String> {
-    let printable = |c: char| {
-        (' '..='~').contains(&c)
-            || ('\u{3041}'..='\u{3096}').contains(&c)
-            || ('\u{3099}'..='\u{30ff}').contains(&c)
-            || ('\u{3400}'..='\u{4dbf}').contains(&c)
-            || ('\u{4e00}'..='\u{9fff}').contains(&c)
-            || ('\u{ff01}'..='\u{ff5e}').contains(&c)
-    };
-    if !s.chars().all(printable) && tmi_repo::py::python_fallback() {
-        return Err(fwd("repr of a text with characters Python may escape"));
-    }
     let quote = if s.contains('\'') && !s.contains('"') { '"' } else { '\'' };
     let mut out = String::with_capacity(s.len() + 2);
     out.push(quote);

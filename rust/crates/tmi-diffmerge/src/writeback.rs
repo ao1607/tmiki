@@ -23,28 +23,16 @@ fn is_py_space(c: char) -> bool {
     c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
 }
 
-/// Characters whose `casefold()` is ASCII (str.casefold, Unicode 15.1).
-fn folds_to_ascii(c: char) -> bool {
-    matches!(c, '\u{df}' | '\u{17f}' | '\u{1e9e}' | '\u{212a}' | '\u{fb00}'..='\u{fb06}')
-}
-
-/// Whether a text that `casefold()`s and collapses whitespace may equal an
-/// ASCII text: Some(folded) when it is ASCII (besides whitespace), None
-/// when it certainly cannot, Err when Python's casefold would decide.
+/// A name casefolded with its whitespace collapsed (`collapse`): ASCII as
+/// Python's `casefold()` gives it, other names through `casefold_approx`.
 fn ascii_fold(text: &str, collapse: impl Fn(&str) -> String) -> Result<Option<String>> {
     if text.chars().all(|c| c.is_ascii() || is_py_space(c)) {
         let replaced: String = text.chars().map(|c| if is_py_space(c) { ' ' } else { c }).collect();
         return Ok(Some(collapse(&replaced).to_ascii_lowercase()));
     }
-    if !tmi_repo::py::python_fallback() {
-        // standing alone: every name folds here (kana and kanji have no case)
-        let replaced: String = text.chars().map(|c| if is_py_space(c) { ' ' } else { c }).collect();
-        return Ok(Some(tmi_repo::py::casefold_approx(&collapse(&replaced))));
-    }
-    if text.chars().any(|c| !c.is_ascii() && !is_py_space(c) && !folds_to_ascii(c)) {
-        return Ok(None);
-    }
-    Err(fwd("a layer name that casefold() may fold to ASCII"))
+    // every other name folds here too (kana and kanji have no case)
+    let replaced: String = text.chars().map(|c| if is_py_space(c) { ' ' } else { c }).collect();
+    Ok(Some(tmi_repo::py::casefold_approx(&collapse(&replaced))))
 }
 
 /// clip.py `_norm`: `" ".join(value.strip().casefold().split())` (ASCII).
@@ -262,9 +250,6 @@ pub fn find_mdp2_layer(doc: &tmi_clip::mdp2::Mdp2, selector: &str) -> Result<Opt
     let sel = selector.trim_matches(is_py_space);
     if sel.is_empty() {
         return Ok(None);
-    }
-    if !sel.is_ascii() && tmi_repo::py::python_fallback() {
-        return Err(fwd("a non-ASCII MDP2 layer selector"));
     }
     let body = match sel.get(..5) {
         Some(p) if p.eq_ignore_ascii_case("mdp2:") => &sel[5..],

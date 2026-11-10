@@ -34,7 +34,6 @@ pub fn switch(argv: &[String], out: &mut Out) -> CmdResult {
     let discard = args::get_flag(&m, "discard");
     let repo = Repo::open()?;
     writes::begin_locked(&repo)?;
-    writes::no_plugins()?;
     let backups_before = repo.read_backups()?.len();
     let mut warnings = Vec::new();
     let commit = if args::get_flag(&m, "create") {
@@ -94,7 +93,6 @@ fn checkout_inner(repo: &Repo, branch: Option<String>, values: Vec<String>, disc
         if values.len() > 1 {
             return Err(RepoError::runtime("checkout -b accepts at most one start revision"));
         }
-        writes::no_plugins()?;
         let start = values.first().map(String::as_str);
         let created = repo.create_branch(&branch, start, &mut warnings);
         writes::warnings(out, &mut warnings);
@@ -139,7 +137,6 @@ fn checkout_inner(repo: &Repo, branch: Option<String>, values: Vec<String>, disc
     }
     let target = &values[0];
     if repo.read_ref(&format!("refs/heads/{target}"))?.is_some() {
-        writes::no_plugins()?;
         let commit = with_progress(&format!("switching to {target}"), || repo.switch(target, discard, &mut || out.flush_pending()))?;
         out.println(format!("Switched to branch {target}"));
         if let Some(c) = commit.filter(|c| !c.is_empty()) {

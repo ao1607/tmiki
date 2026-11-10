@@ -1,19 +1,12 @@
-//! What every native write command shares: the checks that must pass
-//! before anything is written (so the command can still go to Python), and
-//! the notices cli.py prints after rewriting working files.
+//! What every write command shares: the point before its first write, and
+//! the notices printed after rewriting working files.
 
-use crate::out::{self, Encoding, Out, Stream};
-use tmi_repo::{Repo, RepoError, Result};
+use crate::out::Out;
+use tmi_repo::{Repo, Result};
 
-/// Called before a command's first write. Output Python would encode other
-/// than as UTF-8 is not reproduced, and once something is written the
-/// command can no longer be handed to Python: so those go now.
+/// Called before a command's first write: whatever must be refused is
+/// refused before this.
 pub fn begin() -> Result<()> {
-    for stream in [Stream::Stdout, Stream::Stderr] {
-        if !matches!(out::encoding(stream), Encoding::Utf8 | Encoding::Cp932) {
-            return Err(RepoError::forward("output encoding other than UTF-8 or cp932 (write command)"));
-        }
-    }
     Ok(())
 }
 
@@ -24,16 +17,6 @@ pub fn begin_locked(repo: &Repo) -> Result<()> {
     begin()?;
     repo.lock_index()?;
     Ok(())
-}
-
-/// A command that emits a plugin event (`post-switch`): Python would call
-/// the installed plugins, which run only there.
-pub fn no_plugins() -> Result<()> {
-    match crate::pyenv::has_plugins() {
-        Some(false) => Ok(()),
-        Some(true) => Err(RepoError::forward("tmi.plugins are installed")),
-        None => Err(RepoError::forward("could not tell whether tmi.plugins are installed")),
-    }
 }
 
 pub fn warnings(out: &mut Out, warnings: &mut Vec<String>) {

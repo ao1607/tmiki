@@ -1,7 +1,6 @@
 //! `tmiki ls-layers <path> [<rev>]` (cli.py `cmd_ls_layers`) from the stored
 //! layer tree: of a commit, or of the working file when its bytes are the
-//! ones HEAD or the index stored. Anything else is imported here (with
-//! `TMI_PYTHON` set, a built-in format goes to Python as before).
+//! ones HEAD or the index stored. Anything else is imported here.
 
 use crate::args::{self, positional};
 use crate::cmd_log::fwd;
@@ -109,12 +108,8 @@ pub fn ls_layers(argv: &[String], out: &mut Out) -> CmdResult {
                 flatten(&repo, &tree, None, &mut layers)?;
             }
             _ => {
-                // Imported here: a plugin format always (Python does not run
-                // plugins; PLUGINS.md 4.4), every format when standing alone.
+                // a working file the store does not hold: imported here
                 let ctx = tmi_repo::stage::ImportContext::for_repo(&repo)?;
-                if ctx.formats.mapping(&rel).plugin_id().is_none() && crate::pyenv::fallback() {
-                    return Err(fwd("ls-layers of a working file the store does not hold: import"));
-                }
                 // without the plugin: where the recorded layers are (issue #50)
                 if let Some((id, u)) = ctx.formats.unavailable(&repo, &rel) {
                     let committed = repo.entries_for_commit(repo.current_commit()?.as_deref())?.contains_key(&rel);

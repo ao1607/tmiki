@@ -46,10 +46,7 @@ pub fn read_text(path: &Path) -> Result<Option<String>> {
 /// otherwise (Python's escaping of other characters is not reproduced).
 pub fn py_repr_ascii(s: &str) -> Result<String> {
     if !s.bytes().all(|b| (0x20..0x7f).contains(&b)) {
-        if !crate::py::python_fallback() {
-            return Ok(crate::py::repr_lenient(s));
-        }
-        return Err(RepoError::forward("repr of a non-ASCII text"));
+        return Ok(crate::py::repr_lenient(s));
     }
     let quote = if s.contains('\'') && !s.contains('"') { '"' } else { '\'' };
     let mut out = String::new();

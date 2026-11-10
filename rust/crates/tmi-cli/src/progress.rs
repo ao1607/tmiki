@@ -8,10 +8,7 @@
 //!
 //! The spinner is drawn as it happens. The lines are held, numbered in one
 //! sequence with what `Out` holds, and `Out` writes them in that order with
-//! its own output (Python's stderr is unbuffered: its lines come out where
-//! they were printed). A command that goes to Python after all drops them,
-//! and Python prints its own. A pull handed to Python after its fetch
-//! (`hand_over`) writes them and passes its clock on (`TMI_PROGRESS_RESUME`).
+//! its own output (lines come out where they were printed).
 
 use crate::out::{self, Encoding, Stream};
 use indexmap::IndexMap;
@@ -42,11 +39,6 @@ fn held() -> std::sync::MutexGuard<'static, Vec<(u64, String)>> {
 /// The held lines, for `Out` to write.
 pub fn take_held() -> Vec<(u64, String)> {
     std::mem::take(&mut *held())
-}
-
-/// Whether a held line is not ASCII (`Out::writable`).
-pub fn held_non_ascii() -> bool {
-    held().iter().any(|(_, t)| !t.is_ascii())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -93,18 +85,6 @@ pub struct Progress {
     started: Instant,
     shared: Arc<Shared>,
     thread: Mutex<Option<std::thread::JoinHandle<()>>>,
-    /// Where `hand_over` cuts: the lines before this place and the phases
-    /// as they were there (`checkpoint`).
-    mark: Mutex<Option<(u64, Snapshot)>>,
-}
-
-#[derive(Clone)]
-struct Snapshot {
-    phase: Option<String>,
-    phase_started: Instant,
-    phase_times: IndexMap<String, f64>,
-    last_line_phase: Option<String>,
-    last_line_at: Option<Instant>,
 }
 
 /// `_phase_key(msg)`: its leading lowercase words, at most two.
@@ -221,15 +201,6 @@ impl State {
     }
 }
 
-/// Seconds as a JSON number.
-fn secs(d: Duration) -> String {
-    format!("{:?}", d.as_secs_f64())
-}
-
-fn json_str(s: &str) -> String {
-    tmi_store::json::dumps(&tmi_store::json::Value::Str(s.to_string()), &tmi_store::json::DumpOptions::DEFAULT)
-}
-
 impl Progress {
     pub fn new() -> Progress {
         let mode = match mode_from_env() {
@@ -271,21 +242,7 @@ impl Progress {
                 }
             }));
         }
-        Progress { mode, started, shared, thread: Mutex::new(thread), mark: Mutex::new(None) }
-    }
-
-    /// What Python would have printed when it takes over here (a pull's
-    /// fetch done, its merge not begun): `hand_over` writes that much.
-    pub fn checkpoint(&self) {
-        let s = self.shared.lock();
-        let snapshot = Snapshot {
-            phase: s.phase.clone(),
-            phase_started: s.phase_started,
-            phase_times: s.phase_times.clone(),
-            last_line_phase: s.last_line_phase.clone(),
-            last_line_at: s.last_line_at,
-        };
-        *self.mark.lock().unwrap_or_else(|e| e.into_inner()) = Some((next_seq(), snapshot));
+        Progress { mode, started, shared, thread: Mutex::new(thread) }
     }
 
     /// `progress(msg)`.
@@ -353,58 +310,6 @@ impl Progress {
                 }
             }
         }
-    }
-
-    /// Before a command goes on in Python (a pull after its fetch): the
-    /// lines so far are written now, the spinner erased, and the clock and
-    /// phases go to the Python progress as `TMI_PROGRESS_RESUME` (cli.py
-    /// `Progress._resume`).
-    pub fn hand_over(&self) {
-        let Some(mode) = self.mode else { return };
-        let mark = self.mark.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if mode == Mode::Tty {
-            self.clear();
-        } else {
-            let cut = mark.as_ref().map_or(u64::MAX, |(seq, _)| *seq);
-            for (seq, line) in take_held() {
-                if seq < cut {
-                    write_err(&line);
-                }
-            }
-        }
-        let s = match mark {
-            Some((_, snapshot)) => snapshot,
-            None => {
-                let st = self.shared.lock();
-                Snapshot {
-                    phase: st.phase.clone(),
-                    phase_started: st.phase_started,
-                    phase_times: st.phase_times.clone(),
-                    last_line_phase: st.last_line_phase.clone(),
-                    last_line_at: st.last_line_at,
-                }
-            }
-        };
-        let now = Instant::now();
-        let mut state = vec![format!("\"elapsed\": {}", secs(now - self.started))];
-        match &s.phase {
-            Some(p) => {
-                state.push(format!("\"phase\": {}", json_str(p)));
-                state.push(format!("\"phase_elapsed\": {}", secs(now - s.phase_started)));
-            }
-            None => state.push("\"phase\": null".into()),
-        }
-        let times: Vec<String> = s.phase_times.iter().map(|(k, v)| format!("[{}, {v:?}]", json_str(k))).collect();
-        state.push(format!("\"times\": [{}]", times.join(", ")));
-        state.push(format!(
-            "\"last_line_phase\": {}",
-            s.last_line_phase.as_deref().map_or_else(|| "null".to_string(), json_str)
-        ));
-        state.push(format!(
-            "\"last_line_ago\": {}",
-            s.last_line_at.map_or_else(|| "null".to_string(), |at| secs(now - at))
-        ));
-        crate::forward::set_env("TMI_PROGRESS_RESUME", &format!("{{{}}}", state.join(", ")));
     }
 }
 

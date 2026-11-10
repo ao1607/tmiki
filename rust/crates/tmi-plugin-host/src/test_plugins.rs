@@ -13,8 +13,7 @@ pub fn workspace() -> PathBuf {
 
 fn build() -> Result<PathBuf, String> {
     let dir = workspace();
-    // TMI_PLUGINS_TARGET_DIR: elsewhere than rust/plugins/target (the same
-    // variable tools/build_test_plugins.py reads)
+    // TMI_PLUGINS_TARGET_DIR: elsewhere than rust/plugins/target
     let target = std::env::var_os("TMI_PLUGINS_TARGET_DIR").filter(|v| !v.is_empty()).map_or_else(|| dir.join("target"), PathBuf::from);
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let out = std::process::Command::new(cargo)
