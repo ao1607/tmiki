@@ -184,6 +184,20 @@ pub struct BlobReuse {
     pub pixel_source: Value,
 }
 
+/// The most layers one walk of a stored layer tree visits. Layers may share
+/// a subtree (objects are content-addressed), so the depth limit alone does
+/// not bound the work: a few small trees, each naming the one below many
+/// times, would be walked for ever.
+pub const MAX_TREE_LAYERS: usize = 1 << 20;
+
+/// `Err` once a walk has visited more than [`MAX_TREE_LAYERS`] layers.
+pub fn check_layer_count(visited: usize) -> Result<()> {
+    if visited > MAX_TREE_LAYERS {
+        return Err(RepoError::runtime(format!("layer tree too large: more than {MAX_TREE_LAYERS} layers")));
+    }
+    Ok(())
+}
+
 /// `flatten_layers(tree_ref)` (without path_name): every stored layer.
 pub fn flatten_layers(repo: &Repo, tree_ref: &str, out: &mut Vec<Value>, depth: usize) -> Result<()> {
     if depth > 200 {
@@ -197,6 +211,7 @@ pub fn flatten_layers(repo: &Repo, tree_ref: &str, out: &mut Vec<Value>, depth: 
             return Err(fwd("tree layer is not an object"));
         }
         out.push(layer.clone());
+        check_layer_count(out.len())?;
         match layer.get("subtree_ref") {
             Some(Value::Str(s)) if !s.is_empty() => flatten_layers(repo, s, out, depth + 1)?,
             Some(v) if v.truthy() => return Err(fwd("subtree_ref is not a str")),

@@ -49,24 +49,44 @@ impl Setting {
     }
 }
 
-/// `plugin.trust`: the repository's config, else the user's.
+/// `plugin.trust`: the stricter of the repository's config and the user's.
+/// A repository's config may come with the repository (an unpacked folder),
+/// so it can tighten the user's setting but not loosen it: `allow` holds only
+/// when the user's config says it too.
 pub fn setting(repo: &Repo) -> Result<Setting> {
+    let parse = |raw: Option<&Value>| -> Result<Option<Setting>> {
+        match raw {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::Str(s)) => match s.trim().to_ascii_lowercase().as_str() {
+                "notice" => Ok(Some(Setting::Notice)),
+                "prompt" => Ok(Some(Setting::Prompt)),
+                "deny" => Ok(Some(Setting::Deny)),
+                "allow" => Ok(Some(Setting::Allow)),
+                other => Err(RepoError::runtime(format!("plugin.trust is {other:?}: use notice, prompt, deny or allow"))),
+            },
+            Some(other) => Err(RepoError::runtime(format!("plugin.trust is {}: use notice, prompt, deny or allow", json::dumps(other, &json::DumpOptions::CANONICAL)))),
+        }
+    };
     let repo_cfg = repo.read_config()?;
     let user_cfg = crate::config::read_user_config()?;
-    let raw = match crate::config::get_value(&repo_cfg, "plugin.trust")? {
-        Some(v) => Some(v.clone()),
-        None => crate::config::get_value(&user_cfg, "plugin.trust")?.cloned(),
+    let in_repo = parse(crate::config::get_value(&repo_cfg, "plugin.trust")?)?;
+    let in_user = parse(crate::config::get_value(&user_cfg, "plugin.trust")?)?;
+    Ok(stricter_setting(in_repo, in_user))
+}
+
+/// [`setting`]'s rule: deny, prompt, notice, allow from strictest; `allow`
+/// from the repository's config alone is the default (`notice`).
+fn stricter_setting(in_repo: Option<Setting>, in_user: Option<Setting>) -> Setting {
+    let rank = |s: Setting| match s {
+        Setting::Deny => 3,
+        Setting::Prompt => 2,
+        Setting::Notice => 1,
+        Setting::Allow => 0,
     };
-    match raw {
-        None | Some(Value::Null) => Ok(Setting::Notice),
-        Some(Value::Str(s)) => match s.trim().to_ascii_lowercase().as_str() {
-            "notice" => Ok(Setting::Notice),
-            "prompt" => Ok(Setting::Prompt),
-            "deny" => Ok(Setting::Deny),
-            "allow" => Ok(Setting::Allow),
-            other => Err(RepoError::runtime(format!("plugin.trust is {other:?}: use notice, prompt, deny or allow"))),
-        },
-        Some(other) => Err(RepoError::runtime(format!("plugin.trust is {}: use notice, prompt, deny or allow", json::dumps(&other, &json::DumpOptions::CANONICAL)))),
+    let user = in_user.unwrap_or(Setting::Notice);
+    match in_repo {
+        Some(r) if rank(r) > rank(user) => r,
+        _ => user,
     }
 }
 
@@ -433,4 +453,76 @@ pub fn require_dir_consent(dir: &std::path::Path, action: DirAction, content: &[
             DirAction::DevCommand => "its [dev] command",
         }
     )))
+}
+
+// -- hooks: the programs in .tmi/hooks/ ----------------------------------------
+
+/// The environment variable that lets a script run the hooks of a
+/// repository this user has not trusted yet: `TMI_HOOKS_TRUST=allow`.
+pub const HOOKS_TRUST_ENV: &str = "TMI_HOOKS_TRUST";
+
+fn hooks_key(repo_dir: &std::path::Path) -> String {
+    let s = crate::py::realpath(repo_dir).display().to_string();
+    let s = s.strip_prefix(r"\\?\").unwrap_or(&s).to_string();
+    if cfg!(windows) { s.to_ascii_lowercase() } else { s }
+}
+
+/// Whether the hooks of the repository `repo_dir` (its `.tmi`) may run: it
+/// was made here by `init` or `clone`, or the user said yes once. Keyed by
+/// the directory only, so editing one's own hooks never asks again.
+pub fn hooks_trusted(repo_dir: &std::path::Path) -> bool {
+    section("hooks").get(&hooks_key(repo_dir)).is_some_and(Value::truthy)
+}
+
+/// `init` and `clone`: the repository is this user's, its hooks too.
+pub fn grant_hooks(repo_dir: &std::path::Path) -> Result<()> {
+    let mut hooks = section("hooks");
+    hooks.insert(hooks_key(repo_dir), Value::Bool(true));
+    save_section("hooks", hooks)
+}
+
+/// Before a hook of `repo_dir` runs: true when it may. A repository this
+/// user did not make here (an unpacked folder that came with a `.tmi`) is
+/// asked about once on a terminal. Elsewhere the hook does not run: `Err`
+/// when it is `fatal` (a pre-* hook: the command stops as when the hook
+/// fails), else `Ok(false)` after a line on stderr; both say how to allow it.
+pub fn require_hook_consent(repo_dir: &std::path::Path, hook: &std::path::Path, fatal: bool) -> Result<bool> {
+    if hooks_trusted(repo_dir) || std::env::var(HOOKS_TRUST_ENV).is_ok_and(|v| v.trim().eq_ignore_ascii_case("allow")) {
+        return Ok(true);
+    }
+    let shown = tmi_format::safe_text::line(&hook.display().to_string()).into_owned();
+    if ask(&format!(
+        "tmiki: this repository was not made by tmiki init or clone here, and it has a hook: {shown}. A hook runs a program with your permissions. Run this repository's hooks (asked once)?"
+    )) {
+        grant_hooks(repo_dir)?;
+        return Ok(true);
+    }
+    let why = format!(
+        "not running the hook {shown}: this repository's hooks are not trusted (it was not made by tmiki init or clone here). Run the command on a terminal to be asked once, or set {HOOKS_TRUST_ENV}=allow for this command if you trust the repository"
+    );
+    if fatal {
+        return Err(RepoError::runtime(why));
+    }
+    say(&format!("tmiki: {why}"));
+    Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A `.tmi/config` that came with the repository said `plugin.trust
+    /// allow` and won over the user's `deny` / `prompt`, or over nothing.
+    #[test]
+    fn a_repository_config_cannot_loosen_the_users_plugin_trust() {
+        use Setting::*;
+        assert_eq!(stricter_setting(Some(Allow), None), Notice);
+        assert_eq!(stricter_setting(Some(Allow), Some(Deny)), Deny);
+        assert_eq!(stricter_setting(Some(Allow), Some(Prompt)), Prompt);
+        assert_eq!(stricter_setting(Some(Notice), Some(Allow)), Notice);
+        assert_eq!(stricter_setting(Some(Allow), Some(Allow)), Allow);
+        assert_eq!(stricter_setting(Some(Deny), Some(Allow)), Deny, "tightening is fine");
+        assert_eq!(stricter_setting(None, Some(Allow)), Allow);
+        assert_eq!(stricter_setting(None, None), Notice);
+    }
 }

@@ -7,6 +7,12 @@
 //! with the Python on PATH (`py` / `python` on Windows, `python3` /
 //! `python` elsewhere); tmiki itself needs no Python. A `.ps1` runs with
 //! `powershell.exe -ExecutionPolicy Bypass -File`, anything else directly.
+//!
+//! Only the hooks of a repository this user trusts run (`trust.rs`:
+//! made here by `init` / `clone`, or allowed once): a `.tmi` that came in an
+//! unpacked folder runs nothing unasked. The commit message goes to the
+//! hook as `TMI_COMMIT_MSG_FILE` (the exact text, `.tmi/COMMIT_EDITMSG`) and
+//! `TMI_COMMIT_MSG` (without control characters).
 
 use crate::error::{RepoError, Result};
 use std::path::{Path, PathBuf};
@@ -19,17 +25,22 @@ const WIN_HOOK_SUFFIXES: [&str; 5] = [".py", ".bat", ".cmd", ".ps1", ".exe"];
 /// found on PATH.
 fn python_for_hooks() -> PathBuf {
     let names: &[&str] = if cfg!(windows) { &["py.exe", "python.exe"] } else { &["python3", "python"] };
-    if let Some(path) = std::env::var_os("PATH") {
-        for name in names {
-            for dir in std::env::split_paths(&path) {
-                let c = dir.join(name);
-                if c.is_file() {
-                    return c;
-                }
+    std::env::var_os("PATH").and_then(|path| first_on_path(&path, names)).unwrap_or_else(|| PathBuf::from("python"))
+}
+
+/// The first of `names` in the directories of `path` (a PATH value).
+fn first_on_path(path: &std::ffi::OsStr, names: &[&str]) -> Option<PathBuf> {
+    for name in names {
+        // a relative entry ("." or "") would find a program in the working
+        // tree, which a clone fills
+        for dir in std::env::split_paths(path).filter(|d| d.is_absolute()) {
+            let c = dir.join(name);
+            if c.is_file() {
+                return Some(c);
             }
         }
     }
-    PathBuf::from("python")
+    None
 }
 
 /// `hook_path(repo_dir, name)`.
@@ -71,6 +82,11 @@ pub fn any_installed(repo_dir: &Path, names: &[&str]) -> bool {
     names.iter().any(|n| is_installed(repo_dir, n))
 }
 
+/// `text` without control characters (C0 but TAB and LF, DEL, C1).
+fn strip_controls(text: &str) -> String {
+    text.chars().filter(|&c| c == '\t' || c == '\n' || !(c < ' ' || ('\u{7f}'..='\u{9f}').contains(&c))).collect()
+}
+
 fn suffix_lower(path: &Path) -> String {
     // PurePath.suffix: from the last '.' of the name, unless the name
     // starts with it or ends with it.
@@ -98,6 +114,10 @@ pub fn run(
         return Ok(0);
     }
     let path = hook_path(repo_dir, name);
+    // a .tmi that came in an unpacked folder runs nothing unasked
+    if !crate::trust::require_hook_consent(repo_dir, &path, fatal)? {
+        return Ok(1);
+    }
     let tmi_repo = if repo_dir.file_name().is_some_and(|n| n == ".tmi") {
         repo_dir.parent().unwrap_or(repo_dir).to_path_buf()
     } else {
@@ -121,6 +141,16 @@ pub fn run(
     set("TMI_REPO", &tmi_repo.to_string_lossy(), &mut env);
     set("TMI_HOOK", name, &mut env);
     for (k, v) in extra_env {
+        if *k == "TMI_COMMIT_MSG" {
+            // The message may be someone else's (`commit --amend` of a pulled
+            // commit): the exact text in a file, the variable without
+            // control characters (a hook reads it as untrusted text).
+            let file = repo_dir.join("COMMIT_EDITMSG");
+            crate::fsio::write_bytes(&file, v.as_bytes())?;
+            set("TMI_COMMIT_MSG_FILE", &file.to_string_lossy(), &mut env);
+            set(k, &strip_controls(v), &mut env);
+            continue;
+        }
         set(k, v, &mut env);
     }
     let suffix = suffix_lower(&path);
@@ -205,4 +235,27 @@ fn win_message(code: u32) -> String {
         return format!("Windows Error 0x{code:x}");
     }
     String::from_utf16_lossy(&s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A PATH with a relative entry: the interpreter for a .py hook was
+    /// looked up there, i.e. in the working tree (cargo runs the tests in
+    /// the crate's directory, where `src/lib.rs` stands in for a planted
+    /// `py.exe`).
+    #[test]
+    fn a_python_planted_in_the_working_tree_is_not_the_hooks_interpreter() {
+        assert!(std::path::Path::new("src").join("lib.rs").is_file());
+        let path = std::env::join_paths(["src"]).unwrap();
+        assert_eq!(first_on_path(&path, &["lib.rs"]), None);
+        let abs = std::env::join_paths([std::fs::canonicalize("src").unwrap()]).unwrap();
+        assert!(first_on_path(&abs, &["lib.rs"]).is_some());
+    }
+
+    #[test]
+    fn the_commit_message_variable_has_no_control_characters() {
+        assert_eq!(strip_controls("fix\x1b[2J & go\r\n\tnext\u{9b}"), "fix[2J & go\n\tnext");
+    }
 }

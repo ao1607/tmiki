@@ -12,7 +12,10 @@ use tmi_repo::{Repo, RepoError, Result};
 use tmi_store::json::{Int, Value};
 
 /// `flatten_layers(tree_ref, prefix)`: (layer, path_name).
-fn flatten(repo: &Repo, tree_ref: &str, prefix: Option<&str>, out: &mut Vec<(Value, Value)>) -> Result<()> {
+fn flatten(repo: &Repo, tree_ref: &str, prefix: Option<&str>, out: &mut Vec<(Value, Value)>, depth: usize) -> Result<()> {
+    if depth > 200 {
+        return Err(fwd("layer tree too deep"));
+    }
     let tree = repo.store.read_json(tree_ref, Some("tree"))?;
     let layers = match tree.get("layers") {
         None => return Ok(()),
@@ -30,9 +33,10 @@ fn flatten(repo: &Repo, tree_ref: &str, prefix: Option<&str>, out: &mut Vec<(Val
             _ => None,
         };
         out.push((layer, path_name.clone()));
+        tmi_repo::stage::check_layer_count(out.len())?;
         if let Some(sub) = sub {
             let p = path_name.py_str().ok_or_else(|| fwd("container path"))?;
-            flatten(repo, &sub, Some(&p), out)?;
+            flatten(repo, &sub, Some(&p), out, depth + 1)?;
         }
     }
     Ok(())
@@ -88,7 +92,7 @@ pub fn ls_layers(argv: &[String], out: &mut Out) -> CmdResult {
             return Err(RepoError::runtime(format!("path not found in {rev}: {rel}")));
         };
         let tree = str_of(entry, "tree_ref")?.ok_or_else(|| fwd("entry without a tree_ref"))?;
-        flatten(&repo, &tree, None, &mut layers)?;
+        flatten(&repo, &tree, None, &mut layers, 0)?;
     } else {
         let full = repo.pathspec_full_path(&path)?;
         if !full.is_file() {
@@ -105,7 +109,7 @@ pub fn ls_layers(argv: &[String], out: &mut Out) -> CmdResult {
         match known.get(&rel) {
             Some(entry) if entry.truthy() && Some(&digest) == str_of(entry, "source_digest")?.as_ref() => {
                 let tree = str_of(entry, "tree_ref")?.ok_or_else(|| fwd("entry without a tree_ref"))?;
-                flatten(&repo, &tree, None, &mut layers)?;
+                flatten(&repo, &tree, None, &mut layers, 0)?;
             }
             _ => {
                 // a working file the store does not hold: imported here

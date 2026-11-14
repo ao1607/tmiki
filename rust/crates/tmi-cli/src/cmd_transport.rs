@@ -20,7 +20,13 @@ pub fn init(argv: &[String], out: &mut Out) -> CmdResult {
     let m = args::parse(cmd, argv, &["path"])?;
     let path = args::get_str(&m, "path").unwrap_or_else(|| ".".into());
     writes::begin()?;
-    let repo = ops::create(Path::new(&path), args::get_flag(&m, "bare"))?;
+    let bare = args::get_flag(&m, "bare");
+    // a .tmi already there (an unpacked folder) does not become trusted
+    let fresh = !Path::new(&path).join(if bare { "HEAD" } else { tmi_repo::repo::TMI_DIR }).exists();
+    let repo = ops::create(Path::new(&path), bare)?;
+    if fresh {
+        tmi_repo::trust::grant_hooks(&repo.repo_dir)?;
+    }
     out.println(format!("Initialized empty tmi repository in {}", repo.repo_dir.display()));
     Ok(0)
 }
@@ -226,6 +232,7 @@ pub fn clone(argv: &[String], out: &mut Out) -> CmdResult {
             return Err(e);
         }
     };
+    tmi_repo::trust::grant_hooks(&cloned.target.join(tmi_repo::repo::TMI_DIR))?;
     out.println(format!("cloned {} into {}", cloned.stored_url, cloned.target.display()));
     out.println(format!("copied {} objects", cloned.objects));
     // PLUGINS.md 4.3: the plugins compiled now, not on the first add

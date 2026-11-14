@@ -83,6 +83,7 @@ pub fn flatten_layers(repo: &Repo, tree_ref: &str, prefix: &str, out: &mut Vec<V
         let mut item = map.clone();
         item.insert("path_name".into(), Value::Str(path.clone()));
         out.push(Value::Object(item));
+        tmi_repo::stage::check_layer_count(out.len())?;
         match map.get("subtree_ref") {
             Some(Value::Str(s)) if !s.is_empty() => flatten_layers(repo, s, &path, out, depth + 1)?,
             Some(v) if v.truthy() => return Err(fwd("subtree_ref is not a str")),
@@ -257,6 +258,10 @@ pub fn restore_layer(
         let result = writeback::replace_layer_pixels(ctx, &name, Some(&current), &format, &native_selector, &png_bytes, invalidate);
         if let Err(RepoError::Forward(w)) = result {
             return Err(RepoError::Forward(w));
+        }
+        if result.is_ok() {
+            // the working file may hold unsaved work, as in the plugin branch
+            repo.backup_worktree_file(&rel, "restore --in-place", &[], true)?;
         }
         fsio::mkdir_parent(&out)?;
         if existing.is_none() {
@@ -635,6 +640,11 @@ pub fn resolve_conflict_layer(repo: &Repo, ctx: &mut WriteCtx, spec: &str, side:
     let result = writeback::replace_layer_pixels(ctx, &name, Some(&current), &format, &sid, &png, false);
     if let Err(RepoError::Forward(w)) = result {
         return Err(RepoError::Forward(w));
+    }
+    if result.is_ok() && created.is_none() {
+        // the file may have been edited since the merge, as in the plugin branch
+        let left = meta.get("worktree_digest").and_then(Value::as_str).map(str::to_string);
+        repo.backup_worktree_file(&rel, &format!("restore --{side}"), &[left], true)?;
     }
     if let Some(ours) = created {
         fsio::write_bytes(&target, &ours)?;

@@ -43,16 +43,23 @@ pub enum Encoding {
     Cp932,
 }
 
+/// A line of text as it may reach a terminal: much of what commands print
+/// (layer names, paths, a server's error text) was written by other people,
+/// so its control characters are escaped here, once for every command.
+fn safe_line(line: String) -> String {
+    let mut s = tmi_repo::textsafe::escape(&line, true);
+    s.push('\n');
+    s
+}
+
 impl Out {
     pub fn println(&mut self, line: impl Into<String>) {
-        let mut s = line.into();
-        s.push('\n');
+        let s = safe_line(line.into());
         self.events.push((crate::progress::next_seq(), Stream::Stdout, Chunk::Text(s)));
     }
 
     pub fn eprintln(&mut self, line: impl Into<String>) {
-        let mut s = line.into();
-        s.push('\n');
+        let s = safe_line(line.into());
         self.events.push((crate::progress::next_seq(), Stream::Stderr, Chunk::Text(s)));
     }
 

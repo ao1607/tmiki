@@ -88,6 +88,8 @@ impl Repo {
             }
             let out = self.abspath(rel)?;
             if out.exists() && out.is_file() {
+                // it may be a file made since (untracked now): kept in the backups
+                self.backup_worktree_file(rel, "stash apply", &[], true)?;
                 fsio::unlink(&out)?;
                 if let Some(parent) = out.parent() {
                     self.remove_empty_parent_dirs(parent)?;

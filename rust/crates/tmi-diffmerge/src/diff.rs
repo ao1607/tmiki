@@ -570,6 +570,19 @@ struct LayerOut {
     output: Option<String>,
 }
 
+/// The region of a layer the report previews: `bbox` padded by 16, within
+/// the larger side (as `diff_bbox` takes it). When the canvas grew, the
+/// change can lie wholly outside the smaller side.
+fn html_layer_box(bbox: Rect, left: &Px, right: &Px) -> Rect {
+    let pad = 16i64;
+    (
+        (bbox.0 - pad).max(0),
+        (bbox.1 - pad).max(0),
+        (left.width().max(right.width()) as i64).min(bbox.2 + pad),
+        (left.height().max(right.height()) as i64).min(bbox.3 + pad),
+    )
+}
+
 /// One changed layer's pixels: both sides loaded, their bbox and
 /// `_emit_layer_preview(...)`.
 fn layer_pixels(run: &DiffRun, pctx: &Ctx, path: &str, name: &str, raster: bool, before: Option<&LayerView>, after: Option<&LayerView>) -> Result<LayerOut> {
@@ -596,13 +609,7 @@ fn layer_pixels(run: &DiffRun, pctx: &Ctx, path: &str, name: &str, raster: bool,
             // the report shows a PNG / JPEG once, as the composite
             return Ok(LayerOut { bbox: Some(bbox), ..Default::default() });
         }
-        let pad = 16i64;
-        let bx = (
-            (bbox.0 - pad).max(0),
-            (bbox.1 - pad).max(0),
-            (left.width() as i64).min(bbox.2 + pad),
-            (left.height() as i64).min(bbox.3 + pad),
-        );
+        let bx = html_layer_box(bbox, &left, &right);
         // region(bx) of each side, shrunk (_shrink_both): only the painted
         // pixels inside bx are resampled, the region itself is never built.
         let size = fit(((bx.2 - bx.0) as usize, (bx.3 - bx.1) as usize), HTML_LAYER_EDGE);
@@ -1041,6 +1048,20 @@ mod tests {
         assert_eq!(fit((4096, 2048), 2048), (2048, 1024));
         assert_eq!(fit((5, 3), 2), (2, 1)); // 1.2 -> 1, 0.4 -> max(1, 0)
         assert_eq!(fit((2894, 4093), 1024).1, 1024);
+    }
+
+    /// A canvas grown between the commits, the change beyond the old width:
+    /// the preview region stayed within the old (left) side and came out
+    /// with a negative width.
+    #[test]
+    fn a_layer_changed_outside_a_grown_canvas_previews_a_real_region() {
+        let left = Px::Sparse(pix::Sparse::empty((10, 10)));
+        let right = Px::Sparse(pix::Sparse::empty((1000, 1000)));
+        let bx = html_layer_box((900, 900, 901, 901), &left, &right);
+        assert!(bx.0 < bx.2 && bx.1 < bx.3, "{bx:?}");
+        let size = fit(((bx.2 - bx.0) as usize, (bx.3 - bx.1) as usize), HTML_LAYER_EDGE);
+        assert!(pix::resize_region(&left, bx, size).is_ok());
+        assert!(pix::resize_region(&right, bx, size).is_ok());
     }
 
     #[test]
