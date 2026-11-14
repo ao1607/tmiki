@@ -296,9 +296,8 @@ fn sql(e: rusqlite::Error) -> String {
 /// `_clone_sqlite_connection`: `sqlite3.connect(":memory:")` and
 /// `clip.db.backup(it)`, `clip.db` being the SQLi payload `deserialize`d.
 fn clone_database(sqlite: &[u8]) -> Result<Connection, String> {
-    let mut src = Connection::open_in_memory().map_err(sql)?;
-    src.deserialize_read_exact(MAIN_DB, sqlite, sqlite.len(), false).map_err(sql)?;
-    let mut dst = Connection::open_in_memory().map_err(sql)?;
+    let src = crate::db::open(sqlite, false)?;
+    let mut dst = crate::db::locked_connection()?;
     // CPython leaves foreign keys off; this SQLite build turns them on.
     dst.execute_batch("PRAGMA foreign_keys = OFF").map_err(sql)?;
     {

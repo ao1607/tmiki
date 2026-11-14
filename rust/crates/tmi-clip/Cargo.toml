@@ -9,7 +9,7 @@ rayon.workspace = true
 flate2.workspace = true
 # "bundled" builds the workspace's patched libsqlite3-sys: SQLite 3.50.4
 # (rust/Cargo.toml [patch.crates-io]).
-rusqlite = { version = "0.40.2", features = ["bundled", "serialize", "backup"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "serialize", "backup", "limits", "hooks"] }
 tmi-pillow.workspace = true
 tmi-numpy.workspace = true
 roxmltree = "0.20"

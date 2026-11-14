@@ -104,6 +104,114 @@ pub fn with_preview(raw: &[u8], width: i64, height: i64, data: &[u8]) -> Result<
     })
 }
 
+/// The outer id (`extrnlid` + 32 hex digits) of test offscreen `n`.
+pub fn outer_id(n: u32) -> String {
+    format!("extrnlid{n:032X}")
+}
+
+/// An `Offscreen.Attribute` `parse_offscreen_attribute` reads: colour
+/// (`color-alpha-bgra`), `pixel_w` x `pixel_h`, a `cols` x `rows` grid, no
+/// init colour.
+pub fn offscreen_attribute(pixel_w: u32, pixel_h: u32, cols: u32, rows: u32) -> Vec<u8> {
+    let name = |s: &str| -> Vec<u8> {
+        let mut out = (s.len() as u32).to_be_bytes().to_vec();
+        out.extend(s.encode_utf16().flat_map(u16::to_be_bytes));
+        out
+    };
+    let count = cols * rows;
+    let mut a = vec![0u8; 12];
+    a.extend_from_slice(&(34 + count * 4).to_be_bytes());
+    a.extend(name("Parameter"));
+    for v in [pixel_w, pixel_h, cols, rows, 33] {
+        a.extend_from_slice(&v.to_be_bytes());
+    }
+    a.extend_from_slice(&[0; 60 + 16]);
+    a.extend(name("InitColor"));
+    a.extend_from_slice(&4u32.to_be_bytes());
+    a.extend(name("BlockSize"));
+    for v in [12, count, 4] {
+        a.extend_from_slice(&v.to_be_bytes());
+    }
+    a.extend(std::iter::repeat_n(0u8, count as usize * 4));
+    a
+}
+
+/// A `BlockDataBeginChunk` record with `zlib` (a zlib stream) as its data.
+pub fn tile_record(block: u32, bpt: u32, tw: u32, th: u32, zlib: Option<&[u8]>) -> Vec<u8> {
+    let mut body = Vec::new();
+    for v in [block, bpt, tw, th, zlib.is_some() as u32] {
+        body.extend_from_slice(&v.to_be_bytes());
+    }
+    if let Some(z) = zlib {
+        body.extend_from_slice(&(4 + z.len() as u32).to_be_bytes());
+        body.extend_from_slice(&(z.len() as u32).to_le_bytes());
+        body.extend_from_slice(z);
+    }
+    body.extend_from_slice(&17u32.to_be_bytes());
+    body.extend("BlockDataEndChunk".encode_utf16().flat_map(u16::to_be_bytes));
+    let begin: Vec<u8> = "BlockDataBeginChunk".encode_utf16().flat_map(u16::to_be_bytes).collect();
+    let mut out = ((8 + begin.len() + body.len()) as u32).to_be_bytes().to_vec();
+    out.extend_from_slice(&19u32.to_be_bytes());
+    out.extend(begin);
+    out.extend(body);
+    out
+}
+
+/// An Exta payload of `records` for `outer` (an [`outer_id`]).
+pub fn exta_payload(outer: &str, records: &[Vec<u8>]) -> Vec<u8> {
+    let inner: Vec<u8> = records.concat();
+    let mut p = 0x28u64.to_be_bytes().to_vec();
+    p.extend_from_slice(outer.as_bytes());
+    p.extend_from_slice(&(inner.len() as u64).to_be_bytes());
+    p.extend(inner);
+    p
+}
+
+/// The SQL of a raster layer `id` (followed by `next`, 0 for none) whose
+/// render offscreen (mipmap `id`) is `attribute` stored in the Exta `outer`.
+pub fn raster_layer_sql(id: i64, next: i64, outer: &str, attribute: &[u8]) -> String {
+    let hex: String = attribute.iter().map(|b| format!("{b:02X}")).collect();
+    format!(
+        "INSERT INTO Layer(MainId, LayerName, LayerFolder, LayerVisibility, LayerOpacity, LayerRenderMipmap, LayerNextIndex) \
+         VALUES ({id}, 'layer {id}', 0, 1, 256, {id}, {next}); \
+         INSERT INTO Mipmap VALUES ({id}, {id}); INSERT INTO MipmapInfo VALUES ({id}, {id}); \
+         INSERT INTO Offscreen VALUES ({id}, X'{hex}', '{outer}');"
+    )
+}
+
+/// A CLIP file made from nothing: a `width` x `height` canvas whose root
+/// folder (`MainId` 1) has the layer `MainId` 2 as its first child, the
+/// database edited by `sql` (layers, views, ...), and `extas` as Exta chunks.
+pub fn minimal_clip(width: u32, height: u32, sql: &str, extas: Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
+    let e = |e: rusqlite::Error| format!("sqlite3: {e}");
+    let con = Connection::open_in_memory().map_err(e)?;
+    con.execute_batch(&format!(
+        "CREATE TABLE Canvas(CanvasUnit, CanvasWidth, CanvasHeight, CanvasResolution, CanvasRootFolder);
+         INSERT INTO Canvas VALUES (0, {width}, {height}, 72.0, 1);
+         CREATE TABLE Layer(MainId INTEGER PRIMARY KEY, LayerName, LayerType, LayerFolder, LayerVisibility, LayerOpacity,
+             LayerComposite, LayerClip, LayerMasking, LayerOffsetX, LayerOffsetY, LayerUuid, LayerRenderMipmap,
+             LayerLayerMaskMipmap, LayerNextIndex, LayerFirstChildIndex);
+         INSERT INTO Layer(MainId, LayerName, LayerFolder, LayerVisibility, LayerOpacity, LayerFirstChildIndex) VALUES (1, 'root', 1, 1, 256, 2);
+         CREATE TABLE Mipmap(MainId INTEGER PRIMARY KEY, BaseMipmapInfo);
+         CREATE TABLE MipmapInfo(MainId INTEGER PRIMARY KEY, Offscreen);
+         CREATE TABLE Offscreen(MainId INTEGER PRIMARY KEY, Attribute, BlockData);
+         CREATE TABLE RemovedExternal(ExternalID BLOB);
+         CREATE TABLE ExternalChunk(ExternalID BLOB, Offset INTEGER);
+         CREATE TRIGGER ExternalUpdateOfBlockDataOnOffscreen UPDATE OF BlockData ON Offscreen
+            BEGIN INSERT INTO RemovedExternal(ExternalID) VALUES(OLD.BlockData); END;
+         CREATE TRIGGER ExternalDeleteOfBlockDataOnOffscreen DELETE ON Offscreen
+            BEGIN INSERT INTO RemovedExternal(ExternalID) VALUES(OLD.BlockData); END;
+         {sql}"
+    ))
+    .map_err(e)?;
+    let sqli = con.serialize(MAIN_DB).map_err(e)?.to_vec();
+    let mut chunks: Chunks = vec![(*b"Head", vec![0; 40])];
+    chunks.extend(extas.into_iter().map(|p| (*b"Exta", p)));
+    chunks.push((*b"SQLi", Vec::new()));
+    chunks.push((*b"Foot", Vec::new()));
+    Ok(emit_with_sqli(24, &chunks, sqli))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

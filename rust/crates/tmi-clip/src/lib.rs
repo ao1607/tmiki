@@ -4,6 +4,7 @@
 
 pub mod attr;
 pub mod container;
+pub mod db;
 pub mod mdp2;
 pub mod mdp2_write;
 pub mod model;

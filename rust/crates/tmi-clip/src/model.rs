@@ -13,7 +13,7 @@
 use std::collections::{HashMap, HashSet};
 
 use rusqlite::types::Value;
-use rusqlite::{Connection, MAIN_DB};
+use rusqlite::Connection;
 
 use crate::container::{self, Chunk};
 
@@ -224,8 +224,7 @@ impl ClipDoc {
         }
         let extas = container::index_extas(raw, &chunks)?;
         let sqlite = container::sqlite_payload(raw, &chunks)?;
-        let mut con = Connection::open_in_memory().map_err(err)?;
-        con.deserialize_read_exact(MAIN_DB, sqlite, sqlite.len(), true).map_err(err)?;
+        let con = crate::db::open(sqlite, true)?;
 
         // Canvas
         let row: Vec<Value> = con
