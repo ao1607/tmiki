@@ -421,7 +421,7 @@ impl CallCx<'_> {
             "codecs.sha256" => Value::Bytes(host::sha256(self.source, &wire::bytes(a(0)?, "data").map_err(ve)?)?),
             "codecs.image-info" => {
                 let img = wire::encoded_image(a(0)?, "img").map_err(ve)?;
-                result_value(host::image_info(Some(self.source.unwrap_or(&[])), &img).map(|h| wire::image_header_value(&h)))
+                result_value(host::image_info(Some(self.source.unwrap_or(&[])), &img, tmi_format::recipe::transform::MAX_EXPANDED).map(|h| wire::image_header_value(&h)))
             }
             "sqlite.database.open" | "sqlite.database.open-writable" => {
                 let image = wire::bytes(a(0)?, "image").map_err(ve)?;

@@ -228,10 +228,19 @@ pub fn is_extension(ext: &str) -> bool {
     (1..=MAX_EXTENSION).contains(&e.len()) && e.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
 }
 
+/// Whether `id` may name a plugin: `[a-z0-9-]{1,40}` and not a Windows
+/// device name (`con`, `nul`, `com1`, ...). An id becomes a file name
+/// (`.tmiplugins/<id>.wasm`, the install directory); `con.wasm` opens the
+/// console on Windows and waits for input.
+pub fn is_plugin_id(id: &str) -> bool {
+    let device = matches!(id, "con" | "prn" | "aux" | "nul")
+        || (id.len() == 4 && (id.starts_with("com") || id.starts_with("lpt")) && id.as_bytes()[3].is_ascii_digit());
+    (1..=40).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') && !device
+}
+
 pub(crate) fn check_info(i: &t::PluginInfo) -> Result<(), PluginError> {
-    let id_ok = (1..=40).contains(&i.id.len()) && i.id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
-    if !id_ok {
-        return Err(PluginError::Info(format!("the id {} is not [a-z0-9-]{{1,40}}", debug_line(&i.id))));
+    if !is_plugin_id(&i.id) {
+        return Err(PluginError::Info(format!("the id {} is not [a-z0-9-]{{1,40}} or is a device name", debug_line(&i.id))));
     }
     if !is_semver(&i.version) {
         return Err(PluginError::Info(format!("the version {} is not semver (1.2.3, 1.2.3-rc.1+build.5; at most {MAX_VERSION} characters)", debug_line(&i.version))));

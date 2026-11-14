@@ -36,17 +36,18 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
         with:
+          toolchain: stable
           targets: wasm32-wasip2
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: rust
       - name: Build tmi
         working-directory: rust
         run: |
-          cargo build --release -p tmi-cli
+          cargo build --locked --release -p tmi-cli
           echo "$GITHUB_WORKSPACE/rust/target/release" >> "$GITHUB_PATH"
       - name: tmiki plugin doctor
         run: tmiki plugin doctor
@@ -112,15 +113,16 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
         with:
+          toolchain: stable
           targets: wasm32-wasip2
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: rust
       - name: cargo test -p tmi-plugin-tools
         working-directory: rust
         env:
           RUST_MIN_STACK: "16777216"
-        run: cargo test --release -p tmi-plugin-tools
+        run: cargo test --locked --release -p tmi-plugin-tools

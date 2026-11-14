@@ -290,6 +290,17 @@ pub fn check_read(repo: &Repo, c: &Component) -> std::result::Result<(), String>
     }
 }
 
+/// Before a component is compiled or run at all (its `info` is code too):
+/// `deny` refuses it and `prompt` asks, by its sha256 (the id is the one the
+/// repository names; the version is not known until it runs). `notice` and
+/// `allow` let it load; `check_read` then says the notice.
+pub fn check_before_load(repo: &Repo, id: &str, sha256: &str) -> std::result::Result<(), String> {
+    match setting(repo).map_err(|e| e.to_string())? {
+        Setting::Deny | Setting::Prompt => check_read(repo, &Component { id, version: "(not run yet)", sha256 }),
+        Setting::Notice | Setting::Allow => Ok(()),
+    }
+}
+
 /// Before a plugin writes `rel` in the working tree (merge write-back,
 /// `restore --in-place`; PLUGINS.md P7 calls this): consent once per
 /// repository and component, asked on a terminal, refused elsewhere.

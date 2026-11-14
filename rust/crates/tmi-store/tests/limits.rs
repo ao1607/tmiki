@@ -83,6 +83,49 @@ fn write_raw_refuses_deep_json_and_bad_manifests() {
 }
 
 #[test]
+fn an_id_naming_a_network_share_or_a_local_path_names_no_file() {
+    let store = store("ids");
+    let marker = std::env::temp_dir().join(format!("tmi-limits-marker-{}", std::process::id()));
+    std::fs::write(&marker, b"x").unwrap();
+    let local = format!("ab{}", marker.display());
+    for id in [local.as_str(), r"ab\\attacker.invalid\share\x", "ab/../../x", &"A".repeat(64)] {
+        assert!(store.path_for(id).starts_with(&store.objects_dir), "{id}");
+        assert!(!store.exists(id), "{id}");
+        assert!(matches!(store.read(id), Err(tmi_store::store::StoreError::Missing(_))), "{id}");
+    }
+    let _ = std::fs::remove_file(&marker);
+}
+
+#[test]
+fn a_large_part_repeated_in_parallel_stops_at_the_declared_size() {
+    let store = store("parallel");
+    let part = store.write("blob", &vec![0u8; 8 << 20]).unwrap();
+    let parts: Vec<&str> = std::iter::repeat(part.as_str()).take(16).collect();
+    let oid = store.write_json("chunked", &manifest(1, &parts, None)).unwrap();
+    let err = store.read_blob(&oid).unwrap_err().to_string();
+    assert!(err.contains("more than 1 bytes"), "{err}");
+    // the shared budget stops each read after one step, not after 8 MiB
+    let budget = std::sync::atomic::AtomicI64::new(100);
+    let raw = std::fs::read(store.path_for(&part)).unwrap();
+    let err = tmi_store::limits::decompress_object_capped(&raw, Some(&budget)).unwrap_err();
+    assert!(err.to_string().contains(tmi_store::limits::OVER_BUDGET));
+}
+
+#[test]
+fn an_object_file_larger_than_any_object_is_not_read() {
+    let store = store("huge-file");
+    let oid = "ab".repeat(32);
+    let path = store.path_for(&oid);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let file = std::fs::File::create(&path).unwrap();
+    file.set_len(tmi_store::store::MAX_OBJECT_FILE + 1).unwrap(); // sparse: nothing is written
+    drop(file);
+    let err = store.read(&oid).unwrap_err().to_string();
+    let _ = std::fs::remove_file(&path);
+    assert!(err.contains("larger than any object"), "{err}");
+}
+
+#[test]
 fn oversize_object_on_disk_is_refused_on_read() {
     let store = store("big");
     let payload = vec![b'0'; tmi_store::limits::MAX_META_OBJECT_SIZE + 1];

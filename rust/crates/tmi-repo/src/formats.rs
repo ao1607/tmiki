@@ -373,6 +373,8 @@ impl Formats {
             return Ok(dev);
         }
         let bytes = self.component_bytes(repo, id)?;
+        // decided before anything of it is compiled or run (deny leaves no .cwasm)
+        trust::check_before_load(repo, id, &tmi_store::oid::sha256_hex(&bytes)).map_err(Unavailable::Denied)?;
         let host = host(repo).map_err(Unavailable::Unreadable)?;
         let plugin = host.load(&bytes).map_err(classify)?;
         if plugin.info.id != id {
@@ -758,6 +760,26 @@ mod tests {
         // (a layer under the limit gets past the size check: its tile is junk)
         let e = run(100, 100).err().expect("junk tile data");
         assert!(e.is_forward(), "{e}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn deny_refuses_a_cloned_component_before_any_of_it_is_compiled_or_run() {
+        let dir = std::env::temp_dir().join(format!("tmi-repo-deny-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".tmi")).unwrap();
+        std::fs::create_dir_all(dir.join(attributes::PLUGIN_DIR)).unwrap();
+        std::fs::write(dir.join(".tmi").join("config"), br#"{"version":1,"plugin":{"trust":"deny"}}"#).unwrap();
+        // not even a component: compiling it would fail, so a refusal that
+        // comes after the compile would say "unreadable", not "denied"
+        std::fs::write(dir.join(attributes::PLUGIN_DIR).join("x.wasm"), b"\0asm hostile").unwrap();
+        let repo = Repo::open_at(&dir).unwrap();
+        let formats = Formats::for_repo(&repo);
+        match formats.plugin(&repo, "x") {
+            Err(Unavailable::Denied(why)) => assert!(why.contains("deny"), "{why}"),
+            Err(other) => panic!("not refused by plugin.trust first: {}", other.why("x")),
+            Ok(_) => panic!("a denied plugin loaded"),
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 

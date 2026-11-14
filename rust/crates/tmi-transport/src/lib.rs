@@ -38,6 +38,9 @@ pub type Progress<'a> = &'a (dyn Fn(&str) + Sync);
 /// The remote's refs as `list_refs()` returns them, in its order.
 pub type Refs = IndexMap<String, String>;
 
+/// The object ids a push sends (those the remote lacks).
+pub type Wanted = std::collections::HashSet<String>;
+
 /// `urlsplit(url).scheme` (lowercased; "" when there is none). URLs
 /// urlsplit would clean first (leading controls or spaces, tabs and
 /// newlines) are Forward.
@@ -126,10 +129,12 @@ impl Remote {
         }
     }
 
-    pub fn push_objects(&self, from: &ObjectStore, progress: Progress) -> Result<usize> {
+    /// Send the objects of `wanted` the remote lacks: only what the pushed
+    /// refs reach (`Repo::closure`), never the rest of the store.
+    pub fn push_objects(&self, from: &ObjectStore, wanted: &Wanted, progress: Progress) -> Result<usize> {
         match self {
-            Remote::Local(r) => r.push_objects(from, progress),
-            Remote::Https(r) => r.push_objects(from, progress),
+            Remote::Local(r) => r.push_objects(from, wanted, progress),
+            Remote::Https(r) => r.push_objects(from, wanted, progress),
         }
     }
 

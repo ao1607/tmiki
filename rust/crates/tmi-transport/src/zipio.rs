@@ -44,6 +44,9 @@ fn le64(out: &mut Vec<u8>, v: u64) {
     out.extend_from_slice(&v.to_le_bytes());
 }
 
+/// The most one member may inflate to: an object file at its cap.
+const MAX_MEMBER_SIZE: u64 = tmi_store::store::MAX_OBJECT_FILE;
+
 fn too_large() -> io::Error {
     io::Error::other("a zip member of 4 GiB or more")
 }
@@ -207,9 +210,9 @@ pub struct Entry {
 }
 
 impl Entry {
-    /// The member's compressed size.
-    pub fn packed_size(&self) -> u64 {
-        self.csize
+    /// What reading the member may hold: its packed or declared size.
+    pub fn held_size(&self) -> u64 {
+        self.csize.max(self.usize)
     }
 }
 
@@ -260,6 +263,11 @@ impl<R: Read + Seek> Reader<R> {
                 start = u64_at(&rec, 48);
             }
         }
+        // sizes and offsets are the sender's word: held to the file before
+        // anything is allocated for them
+        if start.checked_add(size).is_none_or(|end| end > len) {
+            return Err(ReadError::BadZip("Truncated central directory".into()));
+        }
         src.seek(SeekFrom::Start(start)).map_err(|_| not_zip())?;
         let mut dir = vec![0u8; size as usize];
         src.read_exact(&mut dir).map_err(|_| ReadError::BadZip("Truncated central directory".into()))?;
@@ -300,6 +308,11 @@ impl<R: Read + Seek> Reader<R> {
                 }
                 x += 4 + n;
             }
+            if offset.checked_add(30).and_then(|o| o.checked_add(csize)).is_none_or(|end| end > len)
+                || usize > MAX_MEMBER_SIZE
+            {
+                return Err(ReadError::BadZip(format!("Bad size or offset for file {}", py_repr(&name))));
+            }
             entries.push(Entry { name, flags, method, crc, csize, usize, offset });
             i = end;
             if entries.len() as u64 == count && count < 0xFFFF {
@@ -324,15 +337,24 @@ impl<R: Read + Seek> Reader<R> {
             return Err(ReadError::Other(format!("File '{}' is encrypted, password required for extraction", e.name)));
         }
         self.src.seek(SeekFrom::Start(e.offset + 30 + nlen + xlen)).map_err(io_other)?;
-        let mut packed = vec![0u8; e.csize as usize];
-        self.src.read_exact(&mut packed).map_err(|_| ReadError::Other("Error -3 while decompressing data".into()))?;
+        let mut packed = Vec::new();
+        (&mut self.src).take(e.csize).read_to_end(&mut packed).map_err(io_other)?;
+        if (packed.len() as u64) < e.csize {
+            return Err(ReadError::Other("Error -3 while decompressing data".into()));
+        }
         let data = match e.method {
             0 => packed,
             8 => {
-                let mut out = Vec::with_capacity(e.usize as usize);
+                // inflated no further than the size it declares (a deflate
+                // bomb stops there); more than declared is a bad member
+                let mut out = Vec::with_capacity(e.usize.min(1 << 20) as usize);
                 flate2::read::DeflateDecoder::new(&packed[..])
+                    .take(e.usize + 1)
                     .read_to_end(&mut out)
                     .map_err(|err| ReadError::Other(format!("Error -3 while decompressing data: {err}")))?;
+                if out.len() as u64 > e.usize {
+                    return Err(ReadError::BadZip(format!("Bad size for file {}", py_repr(&e.name))));
+                }
                 out
             }
             other => {
@@ -388,5 +410,39 @@ mod tests {
         assert_eq!(r.read(0).unwrap(), b"hello hello hello");
         assert_eq!(r.read(1).unwrap(), b"");
         assert!(matches!(Reader::open(std::io::Cursor::new(b"nope".to_vec())), Err(ReadError::BadZip(_))));
+    }
+
+    /// A one-member zip of `data` (deflated) and where its central entry is.
+    fn one_member(data: &[u8]) -> (Vec<u8>, usize) {
+        let mut w = Writer::new(std::io::Cursor::new(Vec::new()));
+        w.add("ab/cd", data, true).unwrap();
+        let buf = w.finish().unwrap().into_inner();
+        let at = (0..buf.len() - 4).find(|&i| u32_at(&buf, i) == CENTRAL).unwrap();
+        (buf, at)
+    }
+
+    #[test]
+    fn a_deflate_bomb_member_stops_at_its_declared_size() {
+        let (mut buf, at) = one_member(&vec![0u8; 8 << 20]);
+        buf[at + 24..at + 28].copy_from_slice(&1000u32.to_le_bytes()); // declares 1000 bytes
+        let mut r = Reader::open(std::io::Cursor::new(buf)).unwrap();
+        let err = r.read(0).err().unwrap().to_string();
+        assert!(err.starts_with("Bad size for file"), "{err}");
+    }
+
+    #[test]
+    fn sizes_and_offsets_past_the_file_are_refused_before_allocating() {
+        let (buf, at) = one_member(b"hello");
+        let mut big = buf.clone();
+        big[at + 20..at + 24].copy_from_slice(&0xFFFF_FFF0u32.to_le_bytes()); // csize
+        assert!(Reader::open(std::io::Cursor::new(big)).err().unwrap().to_string().starts_with("Bad size or offset"));
+        let mut far = buf.clone();
+        far[at + 42..at + 46].copy_from_slice(&0xFFFF_FFF0u32.to_le_bytes()); // offset
+        assert!(Reader::open(std::io::Cursor::new(far)).is_err());
+        // the end record's directory size past the file
+        let mut dir = buf;
+        let eocd = dir.len() - 22;
+        dir[eocd + 12..eocd + 16].copy_from_slice(&0xFFFF_FFF0u32.to_le_bytes());
+        assert!(matches!(Reader::open(std::io::Cursor::new(dir)), Err(ReadError::BadZip(_))));
     }
 }

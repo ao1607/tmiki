@@ -179,7 +179,7 @@ pub fn push(
         true,
         before_hook,
     )?;
-    let objects = remote.push_objects(&repo.store, progress)?;
+    let objects = remote.push_objects(&repo.store, &repo.closure(std::slice::from_ref(&commit))?, progress)?;
     // Compare-and-swap against the remote tip this push checked (the remote
     // ref is updated under its lock): a push that raced another one is
     // rejected like a non-fast-forward instead of overwriting it. A plain
@@ -258,7 +258,12 @@ pub fn push_tags(
             before_hook,
         )?;
     }
-    let objects = if pending.is_empty() { 0 } else { remote.push_objects(&repo.store, progress)? };
+    let objects = if pending.is_empty() {
+        0
+    } else {
+        let roots: Vec<String> = pending.iter().map(|(_, value, _)| value.clone()).collect();
+        remote.push_objects(&repo.store, &repo.closure(&roots)?, progress)?
+    };
     for (tag, value, remote_value) in &pending {
         // Compare-and-swap against the tag value checked above (issue #36);
         // --force is the one update that does not compare.

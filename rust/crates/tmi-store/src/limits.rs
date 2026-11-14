@@ -31,6 +31,9 @@ pub fn size_cap_for(object_type: &str) -> usize {
     }
 }
 
+/// The end of the error text when a shared inflate budget runs out.
+pub const OVER_BUDGET: &str = "inflates past the size its blob declares";
+
 pub fn is_oid(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
@@ -39,6 +42,13 @@ pub fn is_oid(s: &str) -> bool {
 /// ignored) that stops with an error once the payload is past its type's cap,
 /// instead of inflating the rest.
 pub fn decompress_object(raw: &[u8]) -> std::io::Result<Vec<u8>> {
+    decompress_object_capped(raw, None)
+}
+
+/// `decompress_object` that also stops once it would inflate more than
+/// `budget` still holds (one budget shared by the parts of a chunked blob, so
+/// parts read in parallel cannot together pass its declared size).
+pub fn decompress_object_capped(raw: &[u8], budget: Option<&std::sync::atomic::AtomicI64>) -> std::io::Result<Vec<u8>> {
     let mut decoder = flate2::read::ZlibDecoder::new(raw);
     let mut out: Vec<u8> = Vec::with_capacity(raw.len().saturating_mul(2).min(1 << 20));
     let mut buf = vec![0u8; 1 << 16];
@@ -55,10 +65,20 @@ pub fn decompress_object(raw: &[u8]) -> std::io::Result<Vec<u8>> {
             let scan = out.len().min(MAX_TYPE_LENGTH + 1);
             if let Some(nul) = out[..scan].iter().position(|&b| b == 0) {
                 let object_type = String::from_utf8_lossy(&out[..nul]).into_owned();
+                if budget.is_some() && object_type != "blob" {
+                    // a budgeted read is a chunked blob's part or glue
+                    let msg = format!("object is {object_type}, expected blob");
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, msg));
+                }
                 header_len = Some(nul + 1);
                 limit = nul + 1 + size_cap_for(&object_type);
             } else if out.len() > MAX_TYPE_LENGTH {
                 return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "object type header too long"));
+            }
+        }
+        if let Some(budget) = budget {
+            if budget.fetch_sub(n as i64, std::sync::atomic::Ordering::SeqCst) < n as i64 {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, OVER_BUDGET));
             }
         }
         if out.len() > limit {

@@ -52,7 +52,10 @@ static TALKED: AtomicBool = AtomicBool::new(false);
 
 pub struct HttpsRemote {
     pub url: String,
+    /// The token, only when it was set for this remote's host.
     token: Option<String>,
+    /// A token is set, but for another host (or none was named).
+    unbound_token: bool,
     /// The scheme, host and port the token is for: the remote URL's.
     origin: Origin,
     limits: Limits,
@@ -175,17 +178,39 @@ pub fn batches(oids: &[String], size_of: Option<&dyn Fn(&str) -> Result<i128>>) 
     Ok(out)
 }
 
-/// `_resolve_token()`.
-fn resolve_token() -> Option<String> {
+/// `_resolve_token()`: the token and the host it is for (`TMIHUB_HOST` with
+/// `TMIHUB_TOKEN`, else `tmihub.host` beside `tmihub.token`).
+fn resolve_token() -> Option<(String, Option<String>)> {
     if let Some(t) = std::env::var("TMIHUB_TOKEN").ok().filter(|t| !t.is_empty()) {
-        return Some(py_strip(&t).to_string());
+        let host = std::env::var("TMIHUB_HOST").ok().map(|h| py_strip(&h).to_string()).filter(|h| !h.is_empty());
+        return Some((py_strip(&t).to_string(), host));
     }
     let cfg = tmi_repo::config::read_user_config().ok()?;
     let value = tmi_repo::config::get_value(&cfg, "tmihub.token").ok()??;
     if !value.truthy() {
         return None;
     }
-    Some(py_strip(&value.py_str()?).to_string())
+    let host = match tmi_repo::config::get_value(&cfg, "tmihub.host") {
+        Ok(Some(h)) if h.truthy() => h.py_str().map(|h| py_strip(&h).to_string()),
+        _ => None,
+    };
+    Some((py_strip(&value.py_str()?).to_string(), host))
+}
+
+/// Whether the token's host (`host[:port]` or a URL) names the remote's
+/// host and port. A token is one person's key to one hub: a remote URL on
+/// any other host (a link from someone else) must not receive it.
+fn token_host_matches(host: &str, remote: &Origin) -> bool {
+    let bound = if host.contains("://") { url_origin(host) } else { url_origin(&format!("{}://{host}", remote.scheme)) };
+    !bound.host.is_empty() && bound.host == remote.host && bound.port == remote.port
+}
+
+/// Why a set token was not sent to this remote.
+fn unbound_token_text(netloc: &str) -> String {
+    format!(
+        "a tmihub token is set, but not for {netloc}, so it was not sent; if this is your hub, \
+         run 'tmiki config --global tmihub.host {netloc}' (TMIHUB_HOST with TMIHUB_TOKEN)"
+    )
 }
 
 fn py_strip(s: &str) -> &str {
@@ -370,7 +395,15 @@ impl Spool {
         let dir = std::env::temp_dir();
         for attempt in 0..100u32 {
             let path = dir.join(format!("tmp{}{suffix}", random_hex(attempt, 8)));
-            match std::fs::OpenOptions::new().read(true).write(true).create_new(true).open(&path) {
+            let mut opts = std::fs::OpenOptions::new();
+            opts.read(true).write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                // objects in transit are the user's: not readable in a shared /tmp
+                use std::os::unix::fs::OpenOptionsExt;
+                opts.mode(0o600);
+            }
+            match opts.open(&path) {
                 Ok(file) => return Ok(Spool { path, file }),
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 Err(e) => return Err(RepoError::runtime(format!("{}: {e}", path.display()))),
@@ -461,7 +494,12 @@ impl HttpsRemote {
             .build();
         let url = url.trim_end_matches('/').to_string();
         let origin = url_origin(&url);
-        Ok(HttpsRemote { url, token: resolve_token(), origin, limits, agent })
+        let (token, unbound_token) = match resolve_token().filter(|(t, _)| !t.is_empty()) {
+            Some((t, Some(host))) if token_host_matches(&host, &origin) => (Some(t), false),
+            Some(_) => (None, true),
+            None => (None, false),
+        };
+        Ok(HttpsRemote { url, token, unbound_token, origin, limits, agent })
     }
 
     /// A request to `endpoint`. The token goes only to the origin of the
@@ -512,6 +550,10 @@ impl HttpsRemote {
                     .filter(Value::truthy)
                     .and_then(|v| v.py_str())
                     .unwrap_or_default();
+                if matches!(code, 401 | 403) && self.unbound_token {
+                    let text = format!("tmihub denied access ({code}); {}", unbound_token_text(&self.origin.netloc));
+                    return Err(Failure::Other { text, url_error: true, forward: false });
+                }
                 Err(Failure::Status(code, detail))
             }
         }
@@ -572,7 +614,8 @@ impl HttpsRemote {
                 RepoError::runtime(match code {
                     401 | 403 => format!(
                         "tmihub denied access ({code}){suffix}. set a token with 'tmiki config --global tmihub.token <PAT>' \
-                         or the TMIHUB_TOKEN environment variable"
+                         and the hub it is for with 'tmiki config --global tmihub.host <host>' \
+                         (or TMIHUB_TOKEN and TMIHUB_HOST)"
                     ),
                     409 => format!(
                         "tmihub rejected the update ({code}){suffix}. Fetch and merge first (HTTPS remotes do not accept force pushes)."
@@ -618,9 +661,10 @@ impl HttpsRemote {
             None => Ok(Vec::new()),
             Some(Value::Array(items)) => items
                 .iter()
-                .map(|v| match v {
-                    Value::Str(s) => Ok(s.clone()),
-                    other => Err(RepoError::runtime(format!("'{}' object is not subscriptable", py_type(other)))),
+                .filter_map(|v| match v {
+                    // what is no object id (a path, a share) is not asked for
+                    Value::Str(s) => tmi_store::limits::is_oid(s).then(|| Ok(s.clone())),
+                    other => Some(Err(RepoError::runtime(format!("'{}' object is not subscriptable", py_type(other))))),
                 })
                 .collect(),
             Some(other) => Err(RepoError::runtime(format!("'{}' object is not iterable", py_type(other)))),
@@ -637,7 +681,7 @@ impl HttpsRemote {
     pub fn fetch_objects(&self, into: &ObjectStore, oids: &[String], progress: Progress) -> Result<usize> {
         let mut seen = std::collections::HashSet::new();
         let missing: Vec<String> =
-            oids.iter().filter(|o| seen.insert(o.as_str()) && !into.path_for(o).exists()).cloned().collect();
+            oids.iter().filter(|o| seen.insert(o.as_str()) && !into.exists(o)).cloned().collect();
         if missing.is_empty() {
             return Ok(0);
         }
@@ -707,7 +751,8 @@ impl HttpsRemote {
                 continue;
             }
             let oid = format!("{}{}", parts[0], parts[1]);
-            if into.path_for(&oid).exists() || !seen.insert(oid.clone()) {
+            // a name that is no object id is skipped before it reaches a path
+            if !tmi_store::limits::is_oid(&oid) || into.exists(&oid) || !seen.insert(oid.clone()) {
                 continue;
             }
             wanted.push((last[entry.name.as_str()], oid));
@@ -721,7 +766,8 @@ impl HttpsRemote {
             let mut end = at;
             let mut bytes = 0u64;
             while end < wanted.len() && (end == at || (end - at < 64 && bytes < 64 << 20)) {
-                bytes += zip.entries[wanted[end].0].packed_size();
+                // inflated sizes count: a group of small deflate bombs is not small
+                bytes += zip.entries[wanted[end].0].held_size();
                 end += 1;
             }
             let mut group: Vec<(&str, std::result::Result<Vec<u8>, RepoError>)> = Vec::new();
@@ -763,9 +809,11 @@ impl HttpsRemote {
         Ok(received)
     }
 
-    pub fn push_objects(&self, from: &ObjectStore, progress: Progress) -> Result<usize> {
+    /// Send the objects of `wanted` (what the push reaches) the server lacks.
+    pub fn push_objects(&self, from: &ObjectStore, wanted: &crate::Wanted, progress: Progress) -> Result<usize> {
         let server: std::collections::HashSet<String> = self.server_oids()?.into_iter().collect();
-        let missing: Vec<String> = from.iter_object_ids().into_iter().filter(|o| !server.contains(o)).collect();
+        let mut missing: Vec<String> = wanted.iter().filter(|o| !server.contains(*o)).cloned().collect();
+        missing.sort();
         if missing.is_empty() {
             return Ok(0);
         }
@@ -865,5 +913,15 @@ fn ref_value(v: &Value) -> Result<String> {
         Value::Str(s) => Ok(s.clone()),
         other if !other.truthy() => Ok(String::new()),
         other => Err(RepoError::runtime(format!("can only concatenate str (not \"{}\") to str", py_type(other)))),
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    #[test]
+    fn objects_in_transit_are_not_readable_by_other_users() {
+        use std::os::unix::fs::PermissionsExt;
+        let spool = super::Spool::new(".zip").unwrap();
+        assert_eq!(spool.file.metadata().unwrap().permissions().mode() & 0o077, 0);
     }
 }

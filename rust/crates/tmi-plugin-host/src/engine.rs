@@ -132,7 +132,7 @@ pub const EXCEPTIONS: bool = false;
 /// version and compiler flags; this adds what tmi chose).
 pub fn fingerprint(s: &Settings) -> String {
     format!(
-        "tmi-plugin-host {} wasmtime 49.0.3 fuel={} epoch={} stack={} pooling={} cow={} maxmem={} exceptions={}",
+        "tmi-plugin-host {} wasmtime 49.0.5 fuel={} epoch={} stack={} pooling={} cow={} maxmem={} exceptions={}",
         env!("CARGO_PKG_VERSION"),
         s.fuel.is_some(),
         s.timeout.is_some(),

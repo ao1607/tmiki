@@ -20,7 +20,7 @@ tmi-plugin-host.workspace = true
 tmi-plugin-dev.workspace = true
 # tmi-plugin-host's wasmtime (the same pinned version): `test` calls one
 # instance several times through `Plugin::call`.
-wasmtime = { version = "=49.0.3", default-features = false, features = ["component-model", "runtime"] }
+wasmtime = { version = "=49.0.5", default-features = false, features = ["component-model", "runtime"] }
 
 [dev-dependencies]
 tmi-plugin-host = { workspace = true, features = ["native-ora"] }

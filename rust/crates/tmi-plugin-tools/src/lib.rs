@@ -47,7 +47,7 @@ pub fn wit_version() -> &'static str {
 
 /// Whether `id` is a plugin id (`[a-z0-9-]{1,40}`, PLUGINS.md 2.1).
 pub fn valid_id(id: &str) -> bool {
-    (1..=40).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    tmi_plugin_host::is_plugin_id(id)
 }
 
 /// `--lang` of `plugin new` and `lang` of `tmi-plugin.toml`: tmi's format

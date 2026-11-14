@@ -72,9 +72,12 @@ pub fn corpus(dir: &Path) -> Result<Vec<(String, PathBuf)>, String> {
         for e in std::fs::read_dir(dir)? {
             let e = e?;
             let p = e.path();
-            if e.file_type()?.is_dir() {
+            let ft = e.file_type()?;
+            if ft.is_dir() {
                 walk(base, &p, out)?;
-            } else {
+            } else if ft.is_file() {
+                // a link (to ~/.ssh/id_ed25519, say) is not read: the plugin
+                // sees what it reads and --update writes it beside the link
                 let rel = p.strip_prefix(base).unwrap_or(&p).to_string_lossy().replace('\\', "/");
                 if !rel.ends_with(EXPECT_SUFFIX) {
                     out.push((rel, p));
@@ -82,6 +85,9 @@ pub fn corpus(dir: &Path) -> Result<Vec<(String, PathBuf)>, String> {
             }
         }
         Ok(())
+    }
+    if std::fs::symlink_metadata(dir).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(format!("{}: the corpus is a link to somewhere else; give the directory itself", dir.display()));
     }
     let mut out = Vec::new();
     walk(dir, dir, &mut out).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -480,5 +486,40 @@ fn flatten<'a>(layers: &'a [tmi_import::ImportedLayer], out: &mut Vec<&'a tmi_im
     for l in layers {
         out.push(l);
         flatten(&l.children, out);
+    }
+}
+
+#[cfg(test)]
+mod link_tests {
+    fn link(target: &std::path::Path, at: &std::path::Path, dir: bool) -> std::io::Result<()> {
+        #[cfg(windows)]
+        return if dir { std::os::windows::fs::symlink_dir(target, at) } else { std::os::windows::fs::symlink_file(target, at) };
+        #[cfg(unix)]
+        {
+            let _ = dir;
+            std::os::unix::fs::symlink(target, at)
+        }
+    }
+
+    #[test]
+    fn a_corpus_link_to_a_private_file_is_not_read() {
+        let base = std::env::temp_dir().join(format!("tmi-corpus-links-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let corpus = base.join("corpus");
+        std::fs::create_dir_all(&corpus).unwrap();
+        let secret = base.join("id_ed25519");
+        std::fs::write(&secret, b"PRIVATE KEY").unwrap();
+        std::fs::write(corpus.join("a.x"), b"sample").unwrap();
+        if link(&secret, &corpus.join("b.x"), false).is_err() {
+            eprintln!("skipped: this account cannot make symbolic links");
+            let _ = std::fs::remove_dir_all(&base);
+            return;
+        }
+        let files: Vec<String> = super::corpus(&corpus).unwrap().into_iter().map(|(rel, _)| rel).collect();
+        assert_eq!(files, ["a.x"]);
+        // nor a corpus that is itself a link
+        link(&corpus, &base.join("linked"), true).unwrap();
+        assert!(super::corpus(&base.join("linked")).unwrap_err().contains("link"));
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

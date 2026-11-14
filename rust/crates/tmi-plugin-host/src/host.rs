@@ -31,6 +31,8 @@ pub struct BlobRes;
 /// The `database` resource.
 pub struct DatabaseRes {
     conn: rusqlite::Connection,
+    /// The bytes it was opened from (counted against the call's maxMemory).
+    image_len: usize,
 }
 
 /// Bytes one call may hand out through `log.emit`: every line counts its
@@ -58,6 +60,9 @@ pub const XML_MAX_NODES: u32 = 1 << 20;
 /// `xml.parse`: bytes of one document (the answer is about 30 times larger
 /// than the text of an empty element).
 pub const XML_MAX_INPUT: usize = 16 << 20;
+/// `xml.parse`: bytes of the answer (names, namespaces, attributes, text and
+/// a little per element), counted before each is copied.
+pub const XML_MAX_ANSWER: usize = 4 * XML_MAX_INPUT;
 
 /// The source file of a call, borrowed for the call's length.
 pub struct SourceView {
@@ -126,6 +131,8 @@ pub struct HostState {
     pub log_truncated: bool,
     /// `sqlite.database` resources alive now.
     open_databases: usize,
+    /// The image bytes of those databases.
+    db_image_bytes: usize,
     /// The `edit` resources of a `write-layers` call (None in every other
     /// call: `edit` then traps).
     pub write: Option<tmi_format::write::WriteCx>,
@@ -147,6 +154,7 @@ impl HostState {
             log_bytes: 0,
             log_truncated: false,
             open_databases: 0,
+            db_image_bytes: 0,
             write: None,
             reverse_unordered_selects: false,
         }
@@ -208,7 +216,7 @@ pub fn sha256(source: Option<&[u8]>, data: &tmi_format::types::Bytes) -> Result<
 /// reads (`tmi_image::header`), no pixels. `has-alpha` is whether the mode
 /// Pillow opens the image in has an alpha band (RGBA, LA, PA, RGBa, La): a
 /// palette or grey image with a tRNS chunk says false.
-pub fn image_info(source: Option<&[u8]>, img: &tmi_format::types::EncodedImage) -> Result<tmi_format::types::ImageHeader, String> {
+pub fn image_info(source: Option<&[u8]>, img: &tmi_format::types::EncodedImage, max_expanded: usize) -> Result<tmi_format::types::ImageHeader, String> {
     use tmi_format::types::ImageCodec;
     if !matches!(img.codec, ImageCodec::Png | ImageCodec::JpegV1) {
         return Err(format!("image-info reads png and jpeg-v1 headers only, not {:?}", img.codec));
@@ -217,7 +225,7 @@ pub fn image_info(source: Option<&[u8]>, img: &tmi_format::types::EncodedImage) 
     let data = tmi_format::recipe::transform::resolve(src, &img.data).map_err(|e| e.to_string())?;
     let cx = tmi_format::reader::ReadCx::new(None);
     let env = tmi_format::recipe::DecodeEnv { source: src, reader: None, cx: &cx };
-    let data = tmi_format::recipe::transform::apply_capped(&env, &img.pre, data, tmi_format::recipe::transform::MAX_EXPANDED).map_err(|e| e.to_string())?;
+    let data = tmi_format::recipe::transform::apply_capped(&env, &img.pre, data, max_expanded.min(tmi_format::recipe::transform::MAX_EXPANDED)).map_err(|e| e.to_string())?;
     let h = match tmi_image::header::header(&data) {
         Ok(Some(h)) => h,
         Ok(None) => return Err("not a png or jpeg".into()),
@@ -277,6 +285,10 @@ impl types::Host for HostState {}
 
 impl codecs::Host for HostState {
     fn transform(&mut self, data: w::Bytes, list: Vec<w::Codec>, max_out: u32) -> wasmtime::Result<Result<Vec<u8>, String>> {
+        // the answer goes into the plugin's memory: no stage may make more
+        // than the room it has left (not 1 GiB of host memory per call)
+        let room = self.limiter.max_memory.saturating_sub(self.limiter.in_use);
+        let max_out = max_out.min(room.min(u32::MAX as usize) as u32);
         Ok(transform(self.source.as_ref().map(|s| s.bytes()), &convert::bytes(data), &convert::codecs(list), max_out))
     }
 
@@ -292,7 +304,8 @@ impl codecs::Host for HostState {
     fn image_info(&mut self, img: w::EncodedImage) -> wasmtime::Result<Result<codecs::ImageHeader, String>> {
         // (image-info reads a span of the file even when the call has none: as before)
         let src = Some(self.source_or_empty());
-        Ok(image_info(src, &convert::encoded_image(img)).map(|h| codecs::ImageHeader {
+        // the header is read from at most the plugin's maxMemory of expanded data
+        Ok(image_info(src, &convert::encoded_image(img), self.limiter.max_memory).map(|h| codecs::ImageHeader {
             width: h.width,
             height: h.height,
             frames: h.frames,
@@ -346,15 +359,20 @@ const MIN_DB_BUDGET: usize = 1 << 20;
 /// `max_page_count` of `main` and `temp`, `SQLITE_LIMIT_LENGTH`, and the
 /// memory-only `temp_store`.
 ///
-/// What is not bounded by these: the transient tables of one statement
-/// (`SELECT DISTINCT`, `ORDER BY` and `GROUP BY` over a huge product) live
-/// in memory under `temp_store=MEMORY` and SQLite has no limit of its own for
-/// them; the statement's step budget ([`SQL_MAX_VM_STEPS`]) bounds how much
-/// they can grow.
+/// What is not bounded by these: one statement's own memory (a row of many
+/// large values, the transient tables of `SELECT DISTINCT`, `ORDER BY` and
+/// `GROUP BY`, in memory under `temp_store=MEMORY`): one VM step can make a
+/// value of `length` bytes, so the step budget does not bound it. The
+/// process-wide [`PLUGIN_SQLITE_HEAP_LIMIT`] does, and [`MAX_SQL_COLUMNS`]
+/// keeps one row smaller.
 fn lock_down(conn: &rusqlite::Connection, image_len: usize, budget: usize) -> rusqlite::Result<()> {
     use rusqlite::hooks::{AuthAction, Authorization};
     use rusqlite::limits::Limit;
     conn.set_limit(Limit::SQLITE_LIMIT_ATTACHED, 0)?;
+    // one result row is held whole by SQLite: fewer columns of at most
+    // `length` bytes each (wider tables than this are not seen in practice)
+    conn.set_limit(Limit::SQLITE_LIMIT_COLUMN, MAX_SQL_COLUMNS)?;
+    set_heap_limit();
     // a value (a blob, a string, one row) of the size of the budget, and
     // never below a CLIP-sized tile many times over
     let length = budget.max(16 << 20).min(i32::MAX as usize) as i32;
@@ -380,6 +398,29 @@ fn lock_down(conn: &rusqlite::Connection, image_len: usize, budget: usize) -> ru
         _ => Authorization::Allow,
     }))?;
     Ok(())
+}
+
+/// Columns a plugin's statement may have (SQLite's default is 2000).
+const MAX_SQL_COLUMNS: i32 = 1000;
+
+/// SQLite's heap limit for the process, set when a plugin first opens a
+/// database. Nothing per connection bounds one statement's own memory (a
+/// row of large values, a sort or DISTINCT over large rows under
+/// `temp_store=MEMORY`); past this SQLite fails the statement with "out of
+/// memory" instead of the process running out. It is process-wide, so it is
+/// far above what the built-in readers need (a CLIP or MDP2 database is part
+/// of a file of at most a few GiB, held once or twice).
+const PLUGIN_SQLITE_HEAP_LIMIT: i64 = 8 << 30;
+
+fn set_heap_limit() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        // SAFETY: a plain setter, safe to call at any time from any thread.
+        let current = unsafe { rusqlite::ffi::sqlite3_hard_heap_limit64(-1) };
+        if current <= 0 || current > PLUGIN_SQLITE_HEAP_LIMIT {
+            unsafe { rusqlite::ffi::sqlite3_hard_heap_limit64(PLUGIN_SQLITE_HEAP_LIMIT) };
+        }
+    });
 }
 
 /// [`open_database_with`] for a plugin that may take as much as
@@ -445,14 +486,30 @@ impl HostState {
         if self.open_databases >= MAX_OPEN_DATABASES {
             return Ok(Err(format!("{MAX_OPEN_DATABASES} databases are open already (the most a call may hold)")));
         }
+        // the images of a call's databases together are held to its
+        // maxMemory, checked before one is copied (a span may repeat the file)
+        let room = self.limiter.max_memory.saturating_sub(self.db_image_bytes);
+        let len = match &image {
+            w::Bytes::Inline(b) => b.len() as u64,
+            w::Bytes::Span(s) => s.len as u64,
+            w::Bytes::Spans(l) => l.iter().map(|s| s.len as u64).sum(),
+        };
+        let len = len.min(usize::MAX as u64) as usize;
+        if len > room {
+            return Ok(Err(format!("database images over the plugin's memory limit ({} bytes)", self.limiter.max_memory)));
+        }
         let bytes = match self.resolve(image) {
             Ok(b) => b.into_owned(),
             Err(e) => return Ok(Err(e)),
         };
+        if bytes.len() > room {
+            return Ok(Err(format!("database images over the plugin's memory limit ({} bytes)", self.limiter.max_memory)));
+        }
         match open_database_with(&bytes, read_only, self.reverse_unordered_selects, self.limiter.max_memory) {
             Ok(conn) => {
-                let r = self.table.push(DatabaseRes { conn })?;
+                let r = self.table.push(DatabaseRes { conn, image_len: bytes.len() })?;
                 self.open_databases += 1;
+                self.db_image_bytes += bytes.len();
                 Ok(Ok(r))
             }
             Err(e) => Ok(Err(e)),
@@ -477,23 +534,21 @@ fn run_query_inner(conn: &rusqlite::Connection, sql: &str, params: Vec<sqlite::S
         let mut r = Vec::with_capacity(n);
         for i in 0..n {
             let v = row.get_ref(i).map_err(|e| e.to_string())?;
-            size += 8;
+            size += 8 + match v {
+                ValueRef::Text(b) | ValueRef::Blob(b) => b.len(),
+                _ => 0,
+            };
+            // checked before the value is copied, not after the whole row
+            if size > QUERY_CAPACITY {
+                return Err(format!("the result is over {QUERY_CAPACITY} bytes"));
+            }
             r.push(match v {
                 ValueRef::Null => sqlite::SqlValue::Null,
                 ValueRef::Integer(i) => sqlite::SqlValue::Integer(i),
                 ValueRef::Real(f) => sqlite::SqlValue::Real(f),
-                ValueRef::Text(t) => {
-                    size += t.len();
-                    sqlite::SqlValue::Text(String::from_utf8_lossy(t).into_owned())
-                }
-                ValueRef::Blob(b) => {
-                    size += b.len();
-                    sqlite::SqlValue::Blob(b.to_vec())
-                }
+                ValueRef::Text(t) => sqlite::SqlValue::Text(String::from_utf8_lossy(t).into_owned()),
+                ValueRef::Blob(b) => sqlite::SqlValue::Blob(b.to_vec()),
             });
-        }
-        if size > QUERY_CAPACITY {
-            return Err(format!("the result is over {QUERY_CAPACITY} bytes"));
         }
         out.push(r);
     }
@@ -525,8 +580,9 @@ impl sqlite::HostDatabase for HostState {
     }
 
     fn drop(&mut self, r: Resource<DatabaseRes>) -> wasmtime::Result<()> {
-        self.table.delete(r)?;
+        let db = self.table.delete(r)?;
         self.open_databases = self.open_databases.saturating_sub(1);
+        self.db_image_bytes = self.db_image_bytes.saturating_sub(db.image_len);
         Ok(())
     }
 }
@@ -574,8 +630,19 @@ pub fn parse_xml(text: &[u8]) -> Result<Vec<xml::Element>, String> {
     tmi_clip::mdp2::check_doctype(&s[..root.range().start])?;
     let mut out: Vec<xml::Element> = Vec::new();
     let mut index = std::collections::HashMap::new();
+    // roxmltree keeps a namespace once; the answer copies it into every
+    // element and prefixed attribute, so its size is counted as it is made
+    let mut answer = 0usize;
     for node in root.descendants().filter(|n| n.is_element()) {
         let parent = node.parent_element().and_then(|p| index.get(&p.id()).copied());
+        let ns = |n: Option<&str>| n.map_or(0, |s| s.len() + 2);
+        answer += 16 + node.tag_name().name().len() + ns(node.tag_name().namespace());
+        answer += node.attributes().map(|a| 8 + a.name().len() + ns(a.namespace()) + a.value().len()).sum::<usize>();
+        let texts = node.children().take_while(|c| !c.is_element()).filter(|c| c.is_text());
+        answer += texts.map(|c| c.text().unwrap_or("").len()).sum::<usize>();
+        if answer > XML_MAX_ANSWER {
+            return Err(format!("the parsed XML is over {XML_MAX_ANSWER} bytes"));
+        }
         let mut t = String::new();
         for c in node.children() {
             if c.is_element() {
