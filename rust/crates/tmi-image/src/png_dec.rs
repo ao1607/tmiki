@@ -598,7 +598,7 @@ pub fn load_facts(data: &[u8], scan: &PngScan) -> Result<PngInfo, PngError> {
         // the file ends inside the image data: Pillow is fine only if the
         // decoder finishes in that last chunk
         let (w, h) = tile_size(scan)?;
-        let finished = zip_inflate(&parts, w, h, scan.info.raw, scan.info.interlace)?.1;
+        let finished = zip_inflate(&parts, w, h, scan.info.raw, scan.info.interlace, false)?.1;
         if finished + 1 < parts.len() {
             return err("Truncated File Read");
         }
@@ -625,6 +625,9 @@ fn channels(colour: u8) -> usize {
     }
 }
 
+/// The buffer a counted row (`zip_inflate` without `keep`) passes through.
+const COUNT_PIECE: usize = 1 << 16;
+
 const ADAM7: [(usize, usize, usize, usize); 7] = [(0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2)];
 
 /// The rows ZipDecode reads for a `w` x `h` tile: (pass, width, height) of
@@ -650,45 +653,72 @@ fn passes(w: usize, h: usize, interlaced: bool) -> Vec<(usize, usize, usize)> {
 /// there (the rest stays 0); one that ends inside a row, or data that runs
 /// out, is "image file is truncated"; a zlib error or an unknown filter
 /// type fails the decode.
-fn zip_inflate(parts: &[(&[u8], bool)], w: usize, h: usize, raw: (u8, u8), interlaced: bool) -> Result<(Vec<Vec<u8>>, usize), PngError> {
+///
+/// `keep`: the rows are wanted. Without it they are only counted
+/// (`load_facts`, which runs before any pixel limit: the header's size must
+/// not size a buffer there), each row passing through a buffer of at most
+/// `COUNT_PIECE` bytes; a piece filled to its end is inflated on even with
+/// no input left, as one call with the whole row's room would have, so the
+/// part the last row comes out of is the same.
+fn zip_inflate(parts: &[(&[u8], bool)], w: usize, h: usize, raw: (u8, u8), interlaced: bool, keep: bool) -> Result<(Vec<Vec<u8>>, usize), PngError> {
     let bpp_bits = raw.0 as usize * channels(raw.1);
     let pixel_bytes = bpp_bits.div_ceil(8).max(1);
     let plan = passes(w, h, interlaced);
-    let mut out: Vec<Vec<u8>> = plan.iter().map(|&(_, pw, ph)| Vec::with_capacity((pw * bpp_bits).div_ceil(8) * ph)).collect();
+    let mut out: Vec<Vec<u8>> =
+        plan.iter().map(|&(_, pw, ph)| if keep { Vec::with_capacity((pw * bpp_bits).div_ceil(8) * ph) } else { Vec::new() }).collect();
     let mut d = flate2::Decompress::new(true);
     let (mut pass, mut row) = (0usize, 0usize);
     let row_len = |p: usize| (plan[p].1 * bpp_bits).div_ceil(8) + 1;
-    let mut buf: Vec<u8> = vec![0; row_len(0)];
+    let mut buf: Vec<u8> = vec![0; if keep { row_len(0) } else { row_len(0).min(COUNT_PIECE) }];
     let mut filled = 0usize;
-    let mut prev: Vec<u8> = vec![0; row_len(0) - 1];
+    let mut prev: Vec<u8> = if keep { vec![0; row_len(0) - 1] } else { Vec::new() };
+    // the filter byte of the row being counted
+    let mut counted_filter = 0u8;
     // ImageFile.load hands the decoder 64 KiB blocks of each chunk's data;
     // the call that completes the last row inflates on through the rest of
     // its block only (so the zlib checksum is checked when it is there).
     let blocks = parts.iter().enumerate().flat_map(|(index, (part, _))| part.chunks(65536).map(move |b| (index, b)));
     for (index, block) in blocks {
         let mut input = block;
-        while !input.is_empty() {
+        let mut drain = false;
+        while !input.is_empty() || drain {
             let (before_in, before_out) = (d.total_in(), d.total_out());
-            let status = d
-                .decompress(input, &mut buf[filled..], flate2::FlushDecompress::None)
-                .map_err(|e| PngError::Decode(format!("decoder error -3 ({e})")))?;
+            let want = row_len(pass) - filled;
+            let room: &mut [u8] = if keep { &mut buf[filled..] } else { &mut buf[..want.min(COUNT_PIECE)] };
+            let room_len = room.len();
+            let status =
+                d.decompress(input, room, flate2::FlushDecompress::None).map_err(|e| PngError::Decode(format!("decoder error -3 ({e})")))?;
             input = &input[(d.total_in() - before_in) as usize..];
-            filled += (d.total_out() - before_out) as usize;
+            let produced = (d.total_out() - before_out) as usize;
+            if !keep && filled == 0 && produced > 0 {
+                counted_filter = buf[0];
+            }
+            let no_progress = d.total_in() == before_in && produced == 0;
+            let drained = drain;
+            drain = !keep && produced == room_len && produced < want;
+            filled += produced;
             let stream_end = status == flate2::Status::StreamEnd;
-            if filled < buf.len() {
-                if stream_end || (d.total_in() == before_in && d.total_out() == before_out) {
+            if filled < row_len(pass) {
+                if drained && no_progress && !stream_end {
+                    continue; // the whole-row call would have stopped here
+                }
+                if stream_end || no_progress {
                     // the stream ended inside a row: no more data is taken
                     return err("image file is truncated");
                 }
                 continue;
             }
-            // a whole row: unfilter it against the pass's previous row
-            let filter = buf[0];
-            let cur = &mut buf[1..];
-            unfilter(filter, cur, &prev, pixel_bytes)?;
-            out[pass].extend_from_slice(cur);
-            prev.clear();
-            prev.extend_from_slice(cur);
+            if keep {
+                // a whole row: unfilter it against the pass's previous row
+                let filter = buf[0];
+                let cur = &mut buf[1..];
+                unfilter(filter, cur, &prev, pixel_bytes)?;
+                out[pass].extend_from_slice(cur);
+                prev.clear();
+                prev.extend_from_slice(cur);
+            } else {
+                unfilter(counted_filter, &mut [], &[], pixel_bytes)?;
+            }
             filled = 0;
             row += 1;
             if row == plan[pass].2 {
@@ -697,8 +727,10 @@ fn zip_inflate(parts: &[(&[u8], bool)], w: usize, h: usize, raw: (u8, u8), inter
                 if pass == plan.len() {
                     return Ok((out, index));
                 }
-                prev = vec![0; row_len(pass) - 1];
-                buf = vec![0; row_len(pass)];
+                if keep {
+                    prev = vec![0; row_len(pass) - 1];
+                    buf = vec![0; row_len(pass)];
+                }
             }
             if stream_end {
                 return Ok((out, index)); // the image and the data end together
@@ -888,7 +920,7 @@ pub fn decode_png_with(data: &[u8], zip_only: bool) -> Result<DecodedPng, PngErr
         None => {
             let mut info2 = scan.info.clone();
             let (parts, _) = data_run(data, &scan, &mut info2)?;
-            let (rows, _) = zip_inflate(&parts, tw, th, raw, scan.info.interlace)?;
+            let (rows, _) = zip_inflate(&parts, tw, th, raw, scan.info.interlace, true)?;
             let packed = deinterlace(&rows, tw, th, raw, scan.info.interlace);
             let line = (tw * raw.0 as usize * channels(raw.1)).div_ceil(8);
             let (mode, tile) = unpack(&packed, line, tw, th, raw)?;
@@ -990,10 +1022,88 @@ mod tests {
                 let (crate_rows, crate_line) = crate_decode(&out).unwrap();
                 let mut info = scan.info.clone();
                 let (parts, _) = data_run(&out, &scan, &mut info).unwrap();
-                let (rows, _) = zip_inflate(&parts, w as usize, h as usize, scan.info.raw, false).unwrap();
+                let (rows, _) = zip_inflate(&parts, w as usize, h as usize, scan.info.raw, false, true).unwrap();
                 let ours = deinterlace(&rows, w as usize, h as usize, scan.info.raw, false);
                 assert_eq!(crate_line, line);
                 assert_eq!(ours, crate_rows, "{colour:?} {depth:?} {w}x{h}");
+            }
+        }
+    }
+
+    fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], body: &[u8], declared: u32) {
+        out.extend_from_slice(&declared.to_be_bytes());
+        out.extend_from_slice(kind);
+        out.extend_from_slice(body);
+        let mut c = Crc32::new();
+        c.update(kind);
+        c.update(body);
+        out.extend_from_slice(&c.finish().to_be_bytes());
+    }
+
+    /// A PNG whose IHDR declares 2^30 x 2^20 16-bit RGBA (2^53 bytes) and
+    /// whose one IDAT says it is longer than the file: the header walk
+    /// (`load_facts`, before any pixel limit) counts rows instead of holding
+    /// them, so it fails without allocating.
+    #[test]
+    fn a_truncated_png_declaring_petabytes_is_read_without_allocating_them() {
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(&(1u32 << 30).to_be_bytes());
+        ihdr.extend_from_slice(&(1u32 << 20).to_be_bytes());
+        ihdr.extend_from_slice(&[16, 6, 0, 0, 0]);
+        let mut data = b"\x89PNG\r\n\x1a\n".to_vec();
+        chunk(&mut data, b"IHDR", &ihdr, 13);
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, &[0u8; 4096]).unwrap();
+        let idat = z.finish().unwrap();
+        data.extend_from_slice(&1_000_000u32.to_be_bytes());
+        data.extend_from_slice(b"IDAT");
+        data.extend_from_slice(&idat);
+        let scan = scan(&data).unwrap();
+        assert!(load_facts(&data, &scan).is_err());
+        assert!(crate::header::header(&data).is_err());
+    }
+
+    /// The decoders a recipe uses (`decode_rgba_any`) hold a PNG to the
+    /// limit on its IHDR before ZipDecode sizes its rows by it.
+    #[test]
+    fn a_png_declaring_terabytes_is_refused_by_the_limited_decode() {
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(&(1u32 << 20).to_be_bytes());
+        ihdr.extend_from_slice(&(1u32 << 20).to_be_bytes());
+        ihdr.extend_from_slice(&[16, 6, 0, 0, 0]);
+        let mut data = b"\x89PNG\r\n\x1a\n".to_vec();
+        chunk(&mut data, b"IHDR", &ihdr, 13);
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, &[0u8; 4096]).unwrap();
+        let idat = z.finish().unwrap();
+        chunk(&mut data, b"IDAT", &idat, idat.len() as u32);
+        chunk(&mut data, b"IEND", &[], 0);
+        assert!(matches!(crate::decode_rgba_any(&data, Some(1 << 24)), Err(crate::DecodeError::TooLarge(..))));
+        assert!(matches!(crate::decode_rgba_max(&data, Some(1 << 24)), Err(crate::DecodeError::TooLarge(..))));
+    }
+
+    /// Counting rows gives the part the last row came out of, and the error,
+    /// that keeping them gives: rows wider than the counting buffer, long
+    /// matches across its pieces, streams cut anywhere, odd chunk sizes.
+    #[test]
+    fn counted_rows_end_where_kept_rows_do() {
+        for (w, h) in [(40_000usize, 3usize), (70_000, 2), (5, 7)] {
+            let line = w * 3 + 1;
+            let mut raw = Vec::new();
+            for y in 0..h {
+                raw.push((y % 5) as u8);
+                raw.extend((0..line - 1).map(|i| if i % 9000 < 8000 { 7 } else { (i * 31 % 251) as u8 }));
+            }
+            let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+            std::io::Write::write_all(&mut z, &raw).unwrap();
+            let stream = z.finish().unwrap();
+            for cut in [stream.len(), stream.len() - 3, stream.len() / 2, 40] {
+                for piece in [7usize, 1000, 70_000] {
+                    let parts: Vec<(&[u8], bool)> = stream[..cut.min(stream.len())].chunks(piece).map(|p| (p, false)).collect();
+                    let kept = zip_inflate(&parts, w, h, (8, 2), false, true).map(|r| r.1).map_err(|e| format!("{e:?}"));
+                    let counted = zip_inflate(&parts, w, h, (8, 2), false, false).map(|r| r.1).map_err(|e| format!("{e:?}"));
+                    assert_eq!(kept, counted, "{w}x{h} cut {cut} piece {piece}");
+                }
             }
         }
     }

@@ -56,10 +56,12 @@ impl std::fmt::Display for DecodeError {
             DecodeError::Jpeg(jpeg::JpegError::Libjpeg(m) | jpeg::JpegError::Corrupt(_, m)) => write!(f, "a JPEG image is damaged: {m}"),
             DecodeError::Jpeg(jpeg::JpegError::Unsupported(m)) => write!(f, "a JPEG image tmi does not read: {m}"),
             DecodeError::Jpeg(jpeg::JpegError::Truncated) => write!(f, "a JPEG image is cut short"),
+            DecodeError::Jpeg(jpeg::JpegError::TooLarge(w, h)) | DecodeError::TooLarge(w, h) => {
+                write!(f, "an image of {w}x{h} pixels is over the pixel limit")
+            }
             DecodeError::Convert(_) => write!(f, "an image in a colour mode tmi cannot convert"),
             DecodeError::Declined(m) => write!(f, "an image tmi does not decode itself: {m}"),
             DecodeError::Corrupt(fmt, m) => write!(f, "a {} image is damaged: {m}", fmt.name().to_ascii_uppercase()),
-            DecodeError::TooLarge(w, h) => write!(f, "an image of {w}x{h} pixels is over the pixel limit"),
             DecodeError::UnknownFormat => write!(f, "an image in a format tmi does not read"),
         }
     }
@@ -122,20 +124,41 @@ pub struct Opened {
 
 /// `Image.open(data)` for PNG and JPEG (by signature, as Pillow tries them).
 pub fn open(data: &[u8]) -> Result<(Image, Format), DecodeError> {
+    open_max(data, None)
+}
+
+/// [`open`] held to `max_pixels` (`TooLarge` above it), checked on the
+/// size the header declares before the pixels are allocated.
+pub fn open_max(data: &[u8], max_pixels: Option<u64>) -> Result<(Image, Format), DecodeError> {
+    let lim = Limit(max_pixels);
     if data.starts_with(b"\x89PNG\r\n\x1a\n") {
+        if lim.0.is_some() {
+            // (a file `scan` refuses, `decode_png` refuses the same way)
+            let size = png_dec::scan(data).map_err(DecodeError::Png)?.info.size;
+            lim.check(size.0 as usize, size.1 as usize)?;
+        }
         // An APNG decodes to its frame 0, as Image.open gives it.
         let d = png_dec::decode_png(data).map_err(DecodeError::Png)?;
         return Ok((d.image, Format::Png));
     }
     if data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
-        return Ok((jpeg::decode_jpeg(data).map_err(DecodeError::Jpeg)?, Format::Jpeg));
+        let image = jpeg::decode_jpeg_max(data, max_pixels).map_err(|e| match e {
+            jpeg::JpegError::TooLarge(w, h) => DecodeError::TooLarge(w, h),
+            e => DecodeError::Jpeg(e),
+        })?;
+        return Ok((image, Format::Jpeg));
     }
     Err(DecodeError::UnknownFormat)
 }
 
 /// `Image.open(data).convert("RGBA")` (importers.py's `as_rgba(opened)`).
 pub fn decode_rgba(data: &[u8]) -> Result<(Image, Format), DecodeError> {
-    let (img, fmt) = open(data)?;
+    decode_rgba_max(data, None)
+}
+
+/// [`decode_rgba`] held to `max_pixels` (see [`open_max`]).
+pub fn decode_rgba_max(data: &[u8], max_pixels: Option<u64>) -> Result<(Image, Format), DecodeError> {
+    let (img, fmt) = open_max(data, max_pixels)?;
     if img.mode == Mode::RGBA {
         return Ok((img, fmt));
     }
@@ -176,7 +199,7 @@ pub fn open_any(data: &[u8], max_pixels: Option<u64>) -> Result<Opened, DecodeEr
         Some(Format::WebP) => webp_dec::open(data, lim),
         Some(Format::Psd) => psd::open(data, lim),
         _ => {
-            let (image, format) = open(data)?;
+            let (image, format) = open_max(data, max_pixels)?;
             Ok(Opened { image, format, info: Info::default() })
         }
     }
@@ -198,6 +221,11 @@ pub(crate) struct Limit(pub Option<u64>);
 
 impl Limit {
     pub fn check(self, w: usize, h: usize) -> Result<(), DecodeError> {
+        // With no limit (core.maxImagePixels = 0) still nothing a buffer of
+        // four bytes a pixel cannot hold: `ImBuf::new`'s product must not wrap.
+        if (w as u128) * (h as u128) * 4 > isize::MAX as u128 {
+            return Err(DecodeError::TooLarge(w, h));
+        }
         match self.0 {
             Some(max) if (w as u64).saturating_mul(h as u64) > max => Err(DecodeError::TooLarge(w, h)),
             _ => Ok(()),

@@ -142,7 +142,7 @@ fn header(data: &[u8]) -> Result<Header, DecodeError> {
         0 => {
             for _ in 0..channels {
                 offsets.push(offset);
-                offset += xsize * ysize;
+                offset = offset.saturating_add(xsize * ysize);
             }
             Tiles::Raw
         }
@@ -209,6 +209,24 @@ pub(crate) fn open(data: &[u8], limit: Limit) -> Result<Opened, DecodeError> {
     }
     let info = Info { dpi: None, icc_profile: h.icc };
     Ok(Opened { image: im.into_image(h.palette), format: Format::Psd, info })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A PSD of 0xFFFFFFFF x 0xFFFFFFFF opened with no pixel limit
+    /// (core.maxImagePixels = 0): refused, not a wrapped buffer size.
+    #[test]
+    fn a_psd_whose_size_wraps_a_buffer_is_refused_even_without_a_limit() {
+        let mut data = b"8BPS\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03".to_vec();
+        data.extend_from_slice(&u32::MAX.to_be_bytes());
+        data.extend_from_slice(&u32::MAX.to_be_bytes());
+        data.extend_from_slice(&[0, 8, 0, 3]);
+        data.extend_from_slice(&[0; 12]);
+        data.extend_from_slice(&[0, 0, 1, 2, 3, 4]);
+        assert!(matches!(open(&data, Limit(None)), Err(DecodeError::TooLarge(..))));
+    }
 }
 
 /// PackDecode.c over the bytes from the tile's offset on: rows of the

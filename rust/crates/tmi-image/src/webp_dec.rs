@@ -63,10 +63,16 @@ fn decoder(data: &[u8]) -> Result<(AnimDecoder, WebPAnimInfo), DecodeError> {
 
 pub(crate) fn open(data: &[u8], limit: Limit) -> Result<Opened, DecodeError> {
     // _anim_decoder_new sniffs the mode first.
-    let has_alpha = unsafe {
+    let (has_alpha, declared) = unsafe {
         let mut features: WebPBitstreamFeatures = std::mem::zeroed();
-        WebPGetFeatures(data.as_ptr(), data.len(), &mut features) != VP8StatusCode::VP8_STATUS_OK || features.has_alpha != 0
+        let ok = WebPGetFeatures(data.as_ptr(), data.len(), &mut features) == VP8StatusCode::VP8_STATUS_OK;
+        (!ok || features.has_alpha != 0, ok.then(|| (features.width.max(0) as usize, features.height.max(0) as usize)))
     };
+    // The animation decoder allocates two canvases when it is made: the
+    // canvas the bitstream declares is held to the limit first.
+    if let Some((w, h)) = declared.filter(|&(w, h)| w != 0 && h != 0) {
+        limit.check(w, h)?;
+    }
     let (dec, info) = decoder(data)?;
     let (w, h) = (info.canvas_width as usize, info.canvas_height as usize);
     if w == 0 || h == 0 {
@@ -117,5 +123,21 @@ mod tests {
         let o = open(&data, Limit(None)).unwrap();
         assert_eq!((o.image.mode, o.image.width, o.image.height), (Mode::RGBA, 4, 3));
         assert_eq!(o.image.data, px);
+    }
+
+    /// A 30-byte lossless WebP declaring 16383 x 16383: refused on its
+    /// declared canvas, before the decoder allocates two of them (2 GiB).
+    #[test]
+    fn a_webp_declaring_a_huge_canvas_is_refused_before_the_decoder_is_made() {
+        let bits: u32 = 16382 | (16382 << 14);
+        let mut vp8l = vec![0x2f];
+        vp8l.extend_from_slice(&bits.to_le_bytes());
+        vp8l.extend_from_slice(&[0u8; 11]);
+        let mut data = b"RIFF".to_vec();
+        data.extend_from_slice(&((4 + 8 + vp8l.len()) as u32).to_le_bytes());
+        data.extend_from_slice(b"WEBPVP8L");
+        data.extend_from_slice(&(vp8l.len() as u32).to_le_bytes());
+        data.extend_from_slice(&vp8l);
+        assert!(matches!(open(&data, Limit(Some(1_000_000))), Err(DecodeError::TooLarge(16383, 16383))));
     }
 }

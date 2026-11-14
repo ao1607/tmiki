@@ -34,6 +34,9 @@ pub enum JpegError {
     Truncated,
     /// libjpeg warned (corrupt data) this many times: declined, not exact.
     Corrupt(u32, String),
+    /// More pixels (width, height) than the caller's limit, seen in the
+    /// header before libjpeg allocates anything for them.
+    TooLarge(usize, usize),
 }
 
 struct Panic(JpegError);
@@ -231,6 +234,15 @@ pub fn decode_jpeg(data: &[u8]) -> Result<Image, JpegError> {
 /// A file that ends early is still `Truncated`.
 #[doc(hidden)]
 pub fn decode_jpeg_with(data: &[u8], lenient: bool) -> Result<Image, JpegError> {
+    decode_jpeg_inner(data, lenient, None)
+}
+
+/// `decode_jpeg` held to `max_pixels` (`TooLarge` above it).
+pub fn decode_jpeg_max(data: &[u8], max_pixels: Option<u64>) -> Result<Image, JpegError> {
+    decode_jpeg_inner(data, false, max_pixels)
+}
+
+fn decode_jpeg_inner(data: &[u8], lenient: bool, max_pixels: Option<u64>) -> Result<Image, JpegError> {
     if let Some((bits, comps, _)) = frame_info(data) {
         if bits != 8 {
             return Err(JpegError::Unsupported(format!("cannot handle {bits}-bit layers")));
@@ -247,6 +259,10 @@ pub fn decode_jpeg_with(data: &[u8], lenient: bool) -> Result<Image, JpegError> 
     let result = catch(|| unsafe {
         jpeg_mem_src(&mut cinfo, data.as_ptr(), data.len() as _);
         jpeg_read_header(&mut cinfo, 1);
+        let (iw, ih) = (cinfo.image_width as usize, cinfo.image_height as usize);
+        if max_pixels.is_some_and(|m| (iw as u64) * (ih as u64) > m) {
+            return Err(JpegError::TooLarge(iw, ih));
+        }
         let (mode, out_cs) = match cinfo.num_components {
             1 => (Mode::L, J_COLOR_SPACE::JCS_GRAYSCALE),
             3 => (Mode::RGB, J_COLOR_SPACE::JCS_RGB),
@@ -471,5 +487,17 @@ mod tests {
         let q = quantization(&data);
         assert_eq!(q.len(), 2);
         assert_eq!(frame_info(&data).unwrap().1, 3);
+    }
+
+    /// A small JPEG whose frame header says 65000 x 65000 (12 GB of RGB):
+    /// refused on the header libjpeg reads, before its output is allocated.
+    #[test]
+    fn a_jpeg_declaring_billions_of_pixels_is_refused_before_its_pixels() {
+        let img = Image::new(Mode::RGB, 8, 8, vec![90; 8 * 8 * 3]);
+        let mut data = encode_jpeg(&img, &JpegOptions::default()).unwrap();
+        let sof = data.windows(2).position(|m| m == [0xFF, 0xC0]).unwrap();
+        data[sof + 5..sof + 9].copy_from_slice(&[0xFD, 0xE8, 0xFD, 0xE8]);
+        assert_eq!(decode_jpeg_max(&data, Some(1 << 20)).err(), Some(JpegError::TooLarge(65000, 65000)));
+        assert!(decode_jpeg_max(&encode_jpeg(&img, &JpegOptions::default()).unwrap(), Some(1 << 20)).is_ok());
     }
 }
