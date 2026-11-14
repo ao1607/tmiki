@@ -324,7 +324,7 @@ pub fn run(o: &Options, print: Print) -> Result<Report, String> {
             Some(Ok((w, h))) => report.fail(
                 "3 the embedded composite is the canvas' size",
                 file,
-                format!("{w}x{h} on a {}x{} canvas (tmi draws generic-v1 instead)", structure.canvas.width, structure.canvas.height),
+                format!("{w}x{h} on a {}x{} canvas (tmiki draws generic-v1 instead)", structure.canvas.width, structure.canvas.height),
             ),
             Some(Err(e)) => report.fail("3 the embedded composite is the canvas' size", file, format!("it does not decode: {e}")),
         }

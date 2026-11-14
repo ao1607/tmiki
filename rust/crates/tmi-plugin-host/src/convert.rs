@@ -248,7 +248,7 @@ pub fn structure(s: w::Structure) -> t::Structure {
     }
 }
 
-/// Text a plugin made that tmi will print: its terminal controls escaped
+/// Text a plugin made that tmiki will print: its terminal controls escaped
 /// (tmi_format::safe_text; PLUGINS.md 11).
 pub(crate) fn shown(m: String) -> String {
     match tmi_format::safe_text::message(&m) {

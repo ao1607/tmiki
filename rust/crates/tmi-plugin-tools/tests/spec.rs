@@ -1,4 +1,4 @@
-//! PLUGIN_SPEC.md holds tmi's WIT (1.1) and the OpenRaster plugin of
+//! PLUGIN_SPEC.md holds tmiki's WIT (1.1) and the OpenRaster plugin of
 //! `rust/plugins/ora` (10: every file, verbatim) as they are in the
 //! repository, and speaks of no other language than Rust (PLUGINS.md Q14).
 
@@ -47,7 +47,7 @@ fn plugin_spec_10_is_the_rust_ora_as_it_is() {
 
 #[test]
 fn plugin_spec_speaks_of_rust_only() {
-    // (the WIT names CPython's zlib.compress, the kernel tmi matches)
+    // (the WIT names CPython's zlib.compress, the kernel tmiki matches)
     let spec = spec().replace(&tmi_plugin_tools::WIT.replace("\r\n", "\n"), "");
     for word in ["componentize", "Python", "python", "TinyGo", "jco", "ComponentizeJS"] {
         assert!(!spec.contains(word), "PLUGIN_SPEC.md mentions {word}");

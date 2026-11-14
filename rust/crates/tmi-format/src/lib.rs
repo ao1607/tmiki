@@ -1,4 +1,4 @@
-//! tmi's format interface (PLUGINS.md, stage P1).
+//! tmiki's format interface (PLUGINS.md, stage P1).
 //!
 //! - [`types`]: the Rust types of `wit/tmi-format.wit` (version 0.1.0), one
 //!   for one. A reader describes a file as a `Structure`: canvas, layers,
@@ -51,7 +51,7 @@ pub fn import_file(name: &str, source: &[u8], digest: &str, opts: &Options, warn
             pipeline::ImportError::Read(e) => decline(format!("clip: {e}")),
         }),
         // Every other extension, and a .png / .jpg whatever it holds: an image
-        // when tmi's decoders read it, else an opaque blob (PLUGINS.md P0e).
+        // when tmiki's decoders read it, else an opaque blob (PLUGINS.md P0e).
         _ => {
             let imported = registry::import_via_registry(registry::Registry::builtin(), name, source, digest, opts, warns)?;
             if imported.source_format == "binary" {
@@ -99,7 +99,7 @@ fn image_signature(suffix: &str, data: &[u8]) -> Option<&'static str> {
     }
 }
 
-/// importers.py `unreadable_image_note(name, data)`: for a file tmi did not
+/// importers.py `unreadable_image_note(name, data)`: for a file tmiki did not
 /// read as an image, what to tell the user when it looks like one (an image
 /// extension, or an image signature). Such a file is kept as an opaque blob;
 /// the warning lets the user see that the visual diff is gone (issue #37).
@@ -108,7 +108,7 @@ pub fn unreadable_image_note(name: &str, data: &[u8]) -> Option<String> {
     let (fmt, why) = match image_signature(&suffix, data) {
         Some(fmt) => (
             fmt,
-            "the data is damaged, incomplete or of a kind tmi cannot read; was the file still being saved or downloaded?".to_string(),
+            "the data is damaged, incomplete or of a kind tmiki cannot read; was the file still being saved or downloaded?".to_string(),
         ),
         None => {
             let fmt = IMAGE_SUFFIXES.iter().find(|(s, _)| *s == suffix)?.1;

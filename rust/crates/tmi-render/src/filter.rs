@@ -26,7 +26,7 @@ pub enum Filter {
 pub enum Decoded {
     /// Not a correction layer, or one that changes nothing: drawn as a layer.
     None,
-    /// A filter id tmi does not render: warned about, drawn as a layer.
+    /// A filter id tmiki does not render: warned about, drawn as a layer.
     Unsupported(u32),
     Filter(Filter),
 }

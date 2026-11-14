@@ -1,8 +1,8 @@
 # {{format_name}} file format — implementation notes
 
 `tmiki plugin new` wrote this file for the plugin `{{id}}`. It describes the
-made-up "tmi sample" format that the template reads, in the shape the notes
-of a real format take (research/mdp2-format.md in the tmi repository).
+made-up "tmiki sample" format that the template reads, in the shape the notes
+of a real format take (research/mdp2-format.md in the tmiki repository).
 Replace every section with what you find about your format, from which
 sample files, and keep 9. "Open items" honest: PLUGIN_SPEC.md 8 asks for it.
 

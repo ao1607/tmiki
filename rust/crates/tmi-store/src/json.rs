@@ -1,6 +1,6 @@
 //! JSON exactly as CPython's `json` module reads and writes it.
 //!
-//! tmi hashes `json.dumps(value, ensure_ascii=False, sort_keys=True,
+//! tmiki hashes `json.dumps(value, ensure_ascii=False, sort_keys=True,
 //! separators=(",", ":"))` (objects.py `canonical_json_bytes`), so every
 //! detail that reaches the bytes is Python's: ints of any size, floats as
 //! `repr(float)` (`1e-05`, `1.0`, `1e+16`), `NaN` / `Infinity`, which
@@ -90,7 +90,7 @@ impl Value {
         matches!(self, Value::Null)
     }
 
-    /// `str(value)` for the scalars (`print(value)` in tmi): None, True,
+    /// `str(value)` for the scalars (`print(value)` in tmiki): None, True,
     /// 3, 1.5, text. Containers are None here (callers fall back to Python).
     pub fn py_str(&self) -> Option<String> {
         Some(match self {
@@ -127,7 +127,7 @@ impl JsonError {
 
 /// How deep arrays and objects may nest. An object received from a remote is
 /// refused past this (`MAX_JSON_DEPTH` in objects.py is the same rule); real
-/// tmi objects nest a dozen levels.
+/// tmiki objects nest a dozen levels.
 pub const MAX_DEPTH: usize = 256;
 
 /// The start of the error text for a document nested past `MAX_DEPTH`.
@@ -400,7 +400,7 @@ impl Parser<'_> {
     }
 }
 
-/// `json.dumps` options tmi uses.
+/// `json.dumps` options tmiki uses.
 #[derive(Clone, Copy, Debug)]
 pub struct DumpOptions<'a> {
     pub sort_keys: bool,
@@ -601,7 +601,7 @@ pub fn float_repr(x: f64) -> String {
     format!("{sign}{body}")
 }
 
-/// `round(x, ndigits)` of a Python float for ndigits >= 0 (tmi rounds
+/// `round(x, ndigits)` of a Python float for ndigits >= 0 (tmiki rounds
 /// opacities with ndigits 6): CPython's `double_round` takes the correctly
 /// rounded decimal of the exact binary value, ties to even, and reads it
 /// back. Rust's fixed-precision formatting is that same exact rounding.

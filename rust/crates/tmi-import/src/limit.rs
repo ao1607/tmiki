@@ -1,4 +1,4 @@
-//! pixel_limit.py: the largest canvas (CLIP / MDP2) and raster image tmi
+//! pixel_limit.py: the largest canvas (CLIP / MDP2) and raster image tmiki
 //! agrees to decode. Over the limit Python raises CanvasTooLargeError with
 //! a message naming where the limit comes from; that is left to Python
 //! (the import declines).

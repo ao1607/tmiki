@@ -1,32 +1,32 @@
-# AGENTS.md — このディレクトリで tmi の形式プラグインを書くエージェントへ
+# AGENTS.md — このディレクトリで tmiki の形式プラグインを書くエージェントへ
 
-ここは tmi（イラストファイル向けのバージョン管理）の形式プラグイン `{{id}}` の作業場所である。`tmiki plugin new {{id}}{{writer_flag}}` が書き出した。プラグインは Rust で書き（tmi のプラグインは Rust だけ）、WebAssembly の component にする。component は `wit/tmi-format.wit`（tmi:format@{{abi}}）の world `{{world}}` を実装する。
+ここは tmiki（イラストファイル向けのバージョン管理）の形式プラグイン `{{id}}` の作業場所である。`tmiki plugin new {{id}}{{writer_flag}}` が書き出した。プラグインは Rust で書き（tmiki のプラグインは Rust だけ）、WebAssembly の component にする。component は `wit/tmi-format.wit`（tmi:format@{{abi}}）の world `{{world}}` を実装する。
 
 ## 最初に読むもの
 1. `PLUGIN_SPEC.md`：インターフェースの全部（WIT の注釈、recipe の語彙、決定性、エラー、書き戻し、完成の条件、開発用プラグイン）。ここに無いことは推測で決めず、決めたことを `SPEC.md` の「Open items」に書く。10 節に完全な例（OpenRaster）がある。
-2. `SPEC.md`：この形式の調査メモ。今は雛形の「tmi sample」形式の説明が入っている。対象の形式のことに書き換えながら進める。
-3. `src/lib.rs`：雛形の実装（`tmi-plugin-sdk` の trait `Plugin`）。「tmi sample」形式を読む{{writer_note}}。
+2. `SPEC.md`：この形式の調査メモ。今は雛形の「tmiki sample」形式の説明が入っている。対象の形式のことに書き換えながら進める。
+3. `src/lib.rs`：雛形の実装（`tmi-plugin-sdk` の trait `Plugin`）。「tmiki sample」形式を読む{{writer_note}}。
 
 ## 作業の繰り返し
 1. 形式のサンプルを `tests/corpus/` に置く（小さいものから。全レイヤー型・全描画モード・読む側のアプリで作ったもの）。雛形の `sample.{{ext}}` は、形式を差し替えたら消す。
 2. `SPEC.md` に分かったことを書く（オフセット・大きさ・意味。どのサンプルで確かめたか）。
 3. `src/lib.rs` の `probe`・`read_structure` を書く。画素はデコードせず、元ファイルの範囲（`span`）と変換（`codec`）で描き方を返す。
 4. `tmiki plugin build` で component と開発用プラグインを作る。
-5. `tmiki plugin test --native` を回し、`FAIL` の行を全部直す。0 で終わるまで 3〜5 を繰り返す。何が起きているかを見るときは開発用プラグイン（PLUGIN_SPEC.md 11）を使う：`eprintln!` が stderr に出て、`tmiki plugin dev {{dev_example}} -- add tests/corpus/sample.{{ext}}` のように本物の tmi のコマンドで試せる（その記録は commit できない）。
+5. `tmiki plugin test --native` を回し、`FAIL` の行を全部直す。0 で終わるまで 3〜5 を繰り返す。何が起きているかを見るときは開発用プラグイン（PLUGIN_SPEC.md 11）を使う：`eprintln!` が stderr に出て、`tmiki plugin dev {{dev_example}} -- add tests/corpus/sample.{{ext}}` のように本物の tmiki のコマンドで試せる（その記録は commit できない）。
 6. 記録が正しいと確かめたら `tmiki plugin test --update` で `*.expect.json` を書き、以後の変更で記録が変わらないことを見張る。
 7. 最後に `tmiki plugin test --fuzz 10000` を通す。
 
 ## 守ること
 - 出力は元ファイルのバイトとファイル名だけで決める。時刻・乱数・環境変数・グローバルな状態・`HashMap` の順に頼らない（PLUGIN_SPEC.md 4）。
-- 読めないファイルは `read-error` で返す。panic で落とさない（落ちると tmi は「crashed」と言って取り込みを断る）。
+- 読めないファイルは `read-error` で返す。panic で落とさない（落ちると tmiki は「crashed」と言って取り込みを断る）。
 - `stable-id` はファイルの中で一意で、ファイルを保存し直しても同じレイヤーなら同じ値にする。
-- `wit/` は書き換えない。tmi の版が決めたもので、変えると tmi が読み込めない。
-- `sdk/` は tmi が書いた SDK の写し。書き換えない（tmi を上げたら `tmiki plugin new` で新しい写しを作って差し替える）。
-- 開発用プラグインの stdout は tmi への管。`println!` を使わない（`eprintln!` を使う）。
+- `wit/` は書き換えない。tmiki の版が決めたもので、変えると tmiki が読み込めない。
+- `sdk/` は tmiki が書いた SDK の写し。書き換えない（tmiki を上げたら `tmiki plugin new` で新しい写しを作って差し替える）。
+- 開発用プラグインの stdout は tmiki への管。`println!` を使わない（`eprintln!` を使う）。
 - `HashMap`・`HashSet` の反復順に頼らない（`BTreeMap` か、並べてから使う）。
 
-- 他人の（clone した）プラグインのディレクトリで `tmiki plugin build`・`tmiki plugin test --native` を打つのは、そのコードを実行すること（cargo のビルドスクリプトと、tmi-plugin.toml の `[dev] command` の同梱プログラム）。打つ前に Cargo.toml・build.rs・`.cargo/config.toml`・`[dev] command` を読む。tmi は初めてのディレクトリでは同意を聞く（`TMI_PLUGIN_DIR_TRUST=allow` で黙らせるのは自分のディレクトリだけにする）。
-- プラグインが名乗る値（id・version・拡張子）は信用されない。version は semver、拡張子は `[a-z0-9]{1,16}` で書く（外れると tmi が読み込みを断る）。
+- 他人の（clone した）プラグインのディレクトリで `tmiki plugin build`・`tmiki plugin test --native` を打つのは、そのコードを実行すること（cargo のビルドスクリプトと、tmi-plugin.toml の `[dev] command` の同梱プログラム）。打つ前に Cargo.toml・build.rs・`.cargo/config.toml`・`[dev] command` を読む。tmiki は初めてのディレクトリでは同意を聞く（`TMI_PLUGIN_DIR_TRUST=allow` で黙らせるのは自分のディレクトリだけにする）。
+- プラグインが名乗る値（id・version・拡張子）は信用されない。version は semver、拡張子は `[a-z0-9]{1,16}` で書く（外れると tmiki が読み込みを断る）。
 
 ## コマンド
 ```
@@ -35,8 +35,8 @@ tmiki plugin build             component を {{output}} に、開発用プラグ
 tmiki plugin test              全項目を確かめる（失敗を全部挙げて 0 以外で終わる）
 tmiki plugin test --native     開発用プラグイン（tmi-plugin.toml の [dev] command）が component と同じ答えか
 tmiki plugin dev {{dev_example}}
-                             開発用プラグインの info を見る（-- <tmi のコマンド> を付けるとそれで動かす）
+                             開発用プラグインの info を見る（-- <tmiki のコマンド> を付けるとそれで動かす）
 tmiki plugin test --update     *.expect.json を書き直す
-tmiki plugin test --fuzz N     壊したファイル N 個でも tmi が落ちないこと
-tmiki plugin add {{output}}    tmi のリポジトリで使う（そのリポジトリの中で）
+tmiki plugin test --fuzz N     壊したファイル N 個でも tmiki が落ちないこと
+tmiki plugin add {{output}}    tmiki のリポジトリで使う（そのリポジトリの中で）
 ```

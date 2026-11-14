@@ -380,7 +380,7 @@ impl Value {
     /// encoding"): shortest integer heads, each float in the shortest of
     /// half, single and double precision that holds it exactly (NaN is the
     /// half 0x7e00), map entries sorted by their keys' encodings. Two values
-    /// are the same WIT value iff their canonical encodings are equal: `tmi
+    /// are the same WIT value iff their canonical encodings are equal: `tmiki
     /// plugin test` compares in it (PLUGINS.md 7.1). The wire itself
     /// ([`Value::encode`]) keeps the order given and 64-bit floats.
     pub fn canonical(&self) -> Vec<u8> {

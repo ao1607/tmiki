@@ -1,6 +1,6 @@
 //! Hostile CLIP files for tests, made from a real one (`example/tama.clip`):
 //! the container is taken apart, the SQLite database edited and the file
-//! emitted again. Not used by tmi itself; public so the importer's and the
+//! emitted again. Not used by tmiki itself; public so the importer's and the
 //! format layer's tests build the same files.
 
 use rusqlite::{Connection, MAIN_DB};

@@ -53,7 +53,7 @@ pub const MAX_OPEN_DATABASES: usize = 8;
 pub const SQL_MAX_VM_STEPS: u64 = 500_000_000;
 /// `xml.parse`: elements nested deeper than this are refused before the
 /// parser sees them (roxmltree recurses once per level and the worker's stack
-/// is finite; the documents tmi reads nest a dozen levels).
+/// is finite; the documents tmiki reads nest a dozen levels).
 pub const XML_MAX_DEPTH: usize = 256;
 /// `xml.parse`: nodes (elements, text, comments) in one document.
 pub const XML_MAX_NODES: u32 = 1 << 20;
@@ -212,7 +212,7 @@ pub fn sha256(source: Option<&[u8]>, data: &tmi_format::types::Bytes) -> Result<
     Ok(ring::digest::digest(&ring::digest::SHA256, &b).as_ref().to_vec())
 }
 
-/// `codecs.image-info`: PNG and `jpeg-v1` only (P5): the header tmi's import
+/// `codecs.image-info`: PNG and `jpeg-v1` only (P5): the header tmiki's import
 /// reads (`tmi_image::header`), no pixels. `has-alpha` is whether the mode
 /// Pillow opens the image in has an alpha band (RGBA, LA, PA, RGBa, La): a
 /// palette or grey image with a tRNS chunk says false.

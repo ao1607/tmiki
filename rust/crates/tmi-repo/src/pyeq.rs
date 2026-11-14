@@ -1,5 +1,5 @@
 //! Python's `==` between JSON-shaped values (`1 == 1.0 == True`, dicts by
-//! their items, lists by their elements), as tmi compares stored layer
+//! their items, lists by their elements), as tmiki compares stored layer
 //! records with freshly imported ones.
 
 use tmi_store::json::{Int, Value};
@@ -34,7 +34,7 @@ pub fn py_eq(a: &Value, b: &Value) -> bool {
         _ => match (int(a), int(b)) {
             (Some(x), Some(y)) => x == y,
             _ => match (num(a), num(b)) {
-                // int vs float: exact for the ints JSON gives tmi (|i| < 2**53)
+                // int vs float: exact for the ints JSON gives tmiki (|i| < 2**53)
                 (Some(x), Some(y)) => x == y,
                 _ => false,
             },

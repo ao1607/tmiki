@@ -1,6 +1,6 @@
 [package]
 name = "tmi-diffmerge"
-description = "tmi's diff (tmi/diff.py, tmi/diff_html.py), merge (tmi/merge.py, the merge and conflict paths of tmi/repo.py), layer write-back and stash push"
+description = "tmiki's diff (tmi/diff.py, tmi/diff_html.py), merge (tmi/merge.py, the merge and conflict paths of tmi/repo.py), layer write-back and stash push"
 version.workspace = true
 edition.workspace = true
 

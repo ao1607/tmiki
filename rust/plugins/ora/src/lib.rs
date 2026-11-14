@@ -1,4 +1,4 @@
-//! An OpenRaster (`.ora`) reader and writer for tmi (PLUGINS.md 7.3),
+//! An OpenRaster (`.ora`) reader and writer for tmiki (PLUGINS.md 7.3),
 //! written once on `tmi-plugin-sdk` ([`plugin::Ora`]) and built three ways:
 //!
 //! - for `wasm32-wasip2` it is a component of the `tmi:format/format-plugin`

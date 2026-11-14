@@ -51,7 +51,7 @@ fn load_component(repo: &Repo, bytes: &[u8], what: &str) -> Result<tmi_plugin_ho
 /// The `.tmiattributes` line for `pattern` and plugin `id`, or an error when
 /// the pattern could write more than one line or more than one rule: a
 /// newline, any whitespace or control, `#`, `=`, a quote, `!` or a leading
-/// `/` or `.`-only pattern. Patterns tmi makes are `*.<[a-z0-9]+>`; the ones a
+/// `/` or `.`-only pattern. Patterns tmiki makes are `*.<[a-z0-9]+>`; the ones a
 /// person types may use the glob characters `* ? [ ]` and `/`.
 fn attribute_line(pattern: &str, id: &str) -> Result<String, RepoError> {
     let bad = pattern.is_empty()
@@ -167,7 +167,7 @@ fn add(argv: &[String], out: &mut Out) -> CmdResult {
     if importer.abi.starts_with("tmi:format@0.") {
         // nothing to do now; said once, so the 1.0 step is no surprise (issue #51)
         out.eprintln(format!(
-            "tmiki: note: plugin {id} is built for {}, the experimental plugin interface. Nothing to do now; when tmi's interface reaches 1.0, 'tmiki plugin reimport {id}' records its files again.",
+            "tmiki: note: plugin {id} is built for {}, the experimental plugin interface. Nothing to do now; when tmiki's interface reaches 1.0, 'tmiki plugin reimport {id}' records its files again.",
             importer.abi
         ));
     }
@@ -375,7 +375,7 @@ fn reimport(argv: &[String], out: &mut Out) -> CmdResult {
 /// `tmiki plugin remove <id>` (issue #50): stop using a plugin. Its component
 /// `.tmiplugins/<id>.wasm` is removed (as `tmiki rm` does), `format=plugin:<id>`
 /// is taken out of `.tmiattributes`, and the tracked files it read are
-/// recorded again from their working files as tmi reads them without it
+/// recorded again from their working files as tmiki reads them without it
 /// (`add --renormalize` of those files: for most formats an opaque blob),
 /// all staged for the next commit. The records of earlier commits stay as
 /// they are (`ls-layers <file> HEAD~1` still shows their layers).

@@ -1,5 +1,5 @@
 //! `types.codec`: the byte-string transforms (PLUGINS.md 3.3, "answer is one
-//! thing" kind: the same bytes out whatever the tmi version), and taking a
+//! thing" kind: the same bytes out whatever the tmiki version), and taking a
 //! `Bytes` out of the source file.
 
 use std::borrow::Cow;

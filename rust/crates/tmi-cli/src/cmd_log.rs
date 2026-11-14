@@ -56,7 +56,7 @@ fn timestamp_str(commit: &Value) -> Result<String> {
     }
 }
 
-/// `datetime.fromisoformat` for the forms tmi writes
+/// `datetime.fromisoformat` for the forms tmiki writes
 /// (`YYYY-MM-DDTHH:MM:SS[.ffffff][+HH:MM]`, "Z" turned into "+00:00");
 /// the date when it parses, None when Python's parse would fail too, and
 /// Forward for text Python might read in a way not reproduced here.
@@ -72,7 +72,7 @@ fn iso_date(raw: &str) -> Result<Option<String>> {
     let digits = |r: std::ops::Range<usize>| b.get(r.clone()).is_some_and(|s| s.iter().all(u8::is_ascii_digit));
     let ok_date = b.len() >= 10 && digits(0..4) && b[4] == b'-' && digits(5..7) && b[7] == b'-' && digits(8..10);
     if !ok_date {
-        return Err(fwd("timestamp not in tmi's form"));
+        return Err(fwd("timestamp not in tmiki's form"));
     }
     let rest = &text[10..];
     let time_ok = {
@@ -99,7 +99,7 @@ fn iso_date(raw: &str) -> Result<Option<String>> {
         ok
     };
     if !time_ok {
-        return Err(fwd("timestamp not in tmi's form"));
+        return Err(fwd("timestamp not in tmiki's form"));
     }
     let (y, m, d): (u32, u32, u32) = (text[0..4].parse().unwrap(), text[5..7].parse().unwrap(), text[8..10].parse().unwrap());
     let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;

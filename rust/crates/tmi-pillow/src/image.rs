@@ -3,7 +3,7 @@
 //! 255, as Pillow stores it), the palette of a "P" image and
 //! `info["transparency"]`.
 
-/// The modes tmi meets (what Pillow's PNG and JPEG decoders produce, plus
+/// The modes tmiki meets (what Pillow's PNG and JPEG decoders produce, plus
 /// the premultiplied and integer modes the conversions pass through).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Mode {

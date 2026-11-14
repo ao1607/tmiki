@@ -1,4 +1,4 @@
-//! A full disk, in tmi's words (issue #42): tmi/diskspace.py. The recording of
+//! A full disk, in tmiki's words (issue #42): tmi/diskspace.py. The recording of
 //! the files a failed stage wrote is `tmi_store::store::track_*`.
 
 use std::path::Path;
@@ -64,7 +64,7 @@ pub fn not_enough_message(rel: &str, needed: u64, free: u64) -> String {
 /// `disk_full_message(rel, needed, free)`.
 pub fn disk_full_message(rel: &str, needed: u64, free: u64) -> String {
     format!(
-        "the disk is full while recording {rel} (at least {} needed, {} free); tmi removed what it had written for it. \
+        "the disk is full while recording {rel} (at least {} needed, {} free); tmiki removed what it had written for it. \
          Free some space and run the command again",
         human_size(needed),
         human_size(free)

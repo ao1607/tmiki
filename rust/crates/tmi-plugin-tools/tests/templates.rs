@@ -55,6 +55,6 @@ fn other_languages_are_refused_with_the_reason() {
     assert_eq!(tmi_plugin_tools::check_lang("rust"), Ok(()));
     for l in ["python", "js", "go", "c"] {
         let e = tmi_plugin_tools::check_lang(l).unwrap_err();
-        assert!(e.starts_with(&format!("tmi format plugins are written in Rust: there is no {l} template")), "{e}");
+        assert!(e.starts_with(&format!("tmiki format plugins are written in Rust: there is no {l} template")), "{e}");
     }
 }

@@ -1,5 +1,5 @@
 //! The WIT's types (wit-bindgen's) to and from the CBOR of `tmiki plugin dev`
-//! (crate `tmi-plugin-dev`'s doc), on the plugin's side; tmi's side is
+//! (crate `tmi-plugin-dev`'s doc), on the plugin's side; tmiki's side is
 //! `tmi-plugin-host/src/devwire.rs`.
 
 use tmi_plugin_dev::{Value, ValueError};
@@ -16,7 +16,7 @@ fn no_case<T>(what: &str, ty: &str, tag: &str) -> R<T> {
     Err(ValueError(format!("{what}: {ty} has no case {tag:?}")))
 }
 
-// -- plugin to tmi ---------------------------------------------------------------
+// -- plugin to tmiki ---------------------------------------------------------------
 
 fn span_value(s: &Span) -> Value {
     Value::record([("offset", Value::Uint(s.offset)), ("len", Value::Uint(s.len))])
@@ -339,7 +339,7 @@ pub fn plugin_info_value(i: &PluginInfo) -> Value {
     ])
 }
 
-/// The plan, its blobs as tmi's handles.
+/// The plan, its blobs as tmiki's handles.
 pub fn write_plan_value(p: WritePlan) -> Value {
     Value::record([
         (
@@ -394,7 +394,7 @@ pub fn sql_value_value(v: &SqlValue) -> Value {
     }
 }
 
-// -- tmi to plugin ---------------------------------------------------------------
+// -- tmiki to plugin ---------------------------------------------------------------
 
 pub fn layer_edit(v: &Value, what: &str) -> R<LayerEdit> {
     let props = v
@@ -480,7 +480,7 @@ mod tests {
     use super::*;
 
     /// A structure with every case of every type a reader returns: its
-    /// CBOR is `tmi-plugin-dev/testdata/structure.cbor`, which tmi's side
+    /// CBOR is `tmi-plugin-dev/testdata/structure.cbor`, which tmiki's side
     /// (`tmi-plugin-host`) reads and writes the same way.
     pub fn kitchen_sink() -> Structure {
         let span = |o, l| Span { offset: o, len: l };

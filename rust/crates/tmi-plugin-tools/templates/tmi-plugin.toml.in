@@ -3,7 +3,7 @@
 
 [plugin]
 id = "{{id}}"
-# tmi plugins are written in Rust (the only language)
+# tmiki plugins are written in Rust (the only language)
 lang = "rust"
 # format-reader (reads only) | format-plugin (reads and writes back)
 world = "{{world}}"

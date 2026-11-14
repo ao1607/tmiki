@@ -136,7 +136,7 @@ impl WriteCx {
     }
 
     /// `pixels.bbox`: `(x0, y0, x1, y1)` of the pixels whose alpha is not 0
-    /// (tmi's `pixel_bbox`), None when every pixel is transparent.
+    /// (tmiki's `pixel_bbox`), None when every pixel is transparent.
     pub fn bbox(&self, id: u32) -> Result<Option<(u32, u32, u32, u32)>, String> {
         let p = self.pixels(id)?;
         Ok(tmi_pillow::bbox::alpha_bbox(&p.rgba, p.width as usize).map(|b| (b.0 as u32, b.1 as u32, b.2 as u32, b.3 as u32)))
@@ -217,8 +217,8 @@ impl WriteCx {
         self.add_blob(data)
     }
 
-    /// `edit.encode-image`: `png-v1` is tmi's own PNG encoder (8-bit RGBA,
-    /// the encoder of every composite and layer PNG tmi writes); the others
+    /// `edit.encode-image`: `png-v1` is tmiki's own PNG encoder (8-bit RGBA,
+    /// the encoder of every composite and layer PNG tmiki writes); the others
     /// are not offered yet.
     pub fn encode_image(&mut self, id: u32, enc: &ImageEncoding) -> Result<u32, String> {
         let p = self.pixels(id)?;
@@ -249,7 +249,7 @@ impl WriteCx {
 
     /// `edit.thumbnail(px, max-side)`: fitted inside `max-side` x
     /// `max-side`, the aspect kept (Pillow's `thumbnail` with LANCZOS and
-    /// `reducing_gap=2.0`, tmi's own thumbnail kernel); pixels already that
+    /// `reducing_gap=2.0`, tmiki's own thumbnail kernel); pixels already that
     /// small are returned as they are.
     pub fn thumbnail(&mut self, id: u32, max_side: u32) -> Result<u32, String> {
         use tmi_pillow::image::{Image, Mode};

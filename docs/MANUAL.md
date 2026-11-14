@@ -19,7 +19,7 @@ cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 
 ### 困ったとき
 
-次の環境変数で、tmi の動きを切り分けられます。
+次の環境変数で、tmiki の動きを切り分けられます。
 
 | 変数 | 働き |
 | --- | --- |
@@ -42,11 +42,11 @@ cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 
 ## 対応フォーマット
 
-どのファイルがどれに入るかは、拡張子ではなく中身で決まります (tmi 自身のデコーダが読めるかどうか。Pillow の有無や版には左右されません)。
+どのファイルがどれに入るかは、拡張子ではなく中身で決まります (tmiki 自身のデコーダが読めるかどうか。Pillow の有無や版には左右されません)。
 
 - **レイヤー認識**: `.clip` (CLIP STUDIO PAINT) / `.mdp` (MDP2: メディバンペイント・FireAlpaca)。レイヤー単位の diff・マージ・復元ができます。`.psd` / `.kra` のレイヤー認識は未実装です (`.psd` は次の「画像として記録」、`.kra` は「その他」に入ります)
-- **画像として記録**: tmi 自身のデコーダ (Rust の `tmi-image`) が最後まで読める PNG・JPEG・GIF・BMP / DIB・TIFF・WebP・PSD は、1 枚のラスタレイヤーを持つ画像として記録し、サムネとビジュアル diff が使えます。PSD は統合画像 (合成結果) だけを読み、レイヤーは認識しません。アニメーション PNG (APNG) と MPO は 1 枚目です。自動マージできるのは PNG と JPEG だけで、GIF・BMP・TIFF・WebP・PSD は両方で変えると衝突になり、`--ours` / `--theirs` でどちらかを選びます (レイヤーが無いので `<file>:<layer>` の指定はできません)
-- **その他**: 読めないものは、Git と同様にバージョン管理できる不透明バイナリとして格納します (差分は「バイナリが変わった」とだけ出て、元のバイト列のまま戻せます)。tmi にデコーダの無い形式 (TGA・PCX・ICO・`.kra` など)、デコーダが断る変種 (YCbCr や LAB の TIFF、I・F モード、LAB の PSD、JPEG 圧縮の TIFF など)、壊れた画像 (libjpeg が警告を出す JPEG、壊れた MPO、途中で切れた PNG・JPEG・GIF・WebP、0 バイトや中身が違うファイル) がこれに入ります。画像らしいファイル (画像の拡張子、または画像の先頭バイト) が読めなかったときは、`tmiki: warning: could not read b.jpg as a JPEG image (...); tracking as opaque binary` と、ファイル名つきで警告します (保存やダウンロードの途中でないか確かめてください)
+- **画像として記録**: tmiki 自身のデコーダ (Rust の `tmi-image`) が最後まで読める PNG・JPEG・GIF・BMP / DIB・TIFF・WebP・PSD は、1 枚のラスタレイヤーを持つ画像として記録し、サムネとビジュアル diff が使えます。PSD は統合画像 (合成結果) だけを読み、レイヤーは認識しません。アニメーション PNG (APNG) と MPO は 1 枚目です。自動マージできるのは PNG と JPEG だけで、GIF・BMP・TIFF・WebP・PSD は両方で変えると衝突になり、`--ours` / `--theirs` でどちらかを選びます (レイヤーが無いので `<file>:<layer>` の指定はできません)
+- **その他**: 読めないものは、Git と同様にバージョン管理できる不透明バイナリとして格納します (差分は「バイナリが変わった」とだけ出て、元のバイト列のまま戻せます)。tmiki にデコーダの無い形式 (TGA・PCX・ICO・`.kra` など)、デコーダが断る変種 (YCbCr や LAB の TIFF、I・F モード、LAB の PSD、JPEG 圧縮の TIFF など)、壊れた画像 (libjpeg が警告を出す JPEG、壊れた MPO、途中で切れた PNG・JPEG・GIF・WebP、0 バイトや中身が違うファイル) がこれに入ります。画像らしいファイル (画像の拡張子、または画像の先頭バイト) が読めなかったときは、`tmiki: warning: could not read b.jpg as a JPEG image (...); tracking as opaque binary` と、ファイル名つきで警告します (保存やダウンロードの途中でないか確かめてください)
 
 シンボリックリンク (Windows ではジャンクションも) は記録しません。`tmiki add link.png` のように名前を指定するとエラーになり、`tmiki add .` ではリンクごとに警告して飛ばします (リンク先の実ファイルは、実際のパスで追跡されます)。
 
@@ -169,11 +169,11 @@ tmiki commit -m "merge feature-eye"
 tmiki merge --abort                        # マージをやめて HEAD に戻す
 ```
 
-衝突ファイルを何も直さずに `add` すると、相手側の変更が捨てられる旨の警告が出ます (`tmiki restore --ours` / `--theirs` で選んだあとの `add` では出ません)。GIF・BMP・TIFF・WebP・PSD のようにレイヤーが無く、tmi が書き戻せない形式は、両側で変えると必ず衝突し、「`--ours` か `--theirs` でどちらかを選ぶ」と案内されます。
+衝突ファイルを何も直さずに `add` すると、相手側の変更が捨てられる旨の警告が出ます (`tmiki restore --ours` / `--theirs` で選んだあとの `add` では出ません)。GIF・BMP・TIFF・WebP・PSD のようにレイヤーが無く、tmiki が書き戻せない形式は、両側で変えると必ず衝突し、「`--ours` か `--theirs` でどちらかを選ぶ」と案内されます。
 
 PNG / JPEG のような1枚絵は、両側の描き込みが離れていれば自動でマージされます。ただし JPEG は保存し直すたびに画像全体の画素が少しずつ変わるため、両側で編集すると描いた場所が離れていても衝突します (`--ours` / `--theirs` でどちらかを選びます)。ブランチで並行して描くファイルは PNG で保存することを勧めます。
 
-マージや `restore` で tmi が PNG / JPEG を書き直すときは、元のファイル (マージでは自分側) の解像度 (dpi)・カラープロファイル (ICC)・EXIF とカラーモード (アルファのない画像は RGB のまま) を引き継ぎます。JPEG は元の量子化テーブルで保存し直します。
+マージや `restore` で tmiki が PNG / JPEG を書き直すときは、元のファイル (マージでは自分側) の解像度 (dpi)・カラープロファイル (ICC)・EXIF とカラーモード (アルファのない画像は RGB のまま) を引き継ぎます。JPEG は元の量子化テーブルで保存し直します。
 
 ## タグ
 
@@ -268,7 +268,7 @@ tmiki hook run post-commit       # 手動で発火
 
 ## 形式プラグイン
 
-tmi が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader。PLUGINS.md) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。
+tmiki が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader。PLUGINS.md) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。
 
 ```powershell
 tmiki plugin add ora.wasm          # .tmiplugins/ora.wasm に置き、.tmiattributes に「*.ora format=plugin:ora」を足して両方ステージ
@@ -303,7 +303,7 @@ tmiki merge side                                     # 両側で別のレイヤ�
 - プラグインでファイルを書き戻す前 (マージの書き戻し・`restore --in-place`・`restore --ours/--theirs <file>:<layer>`・`add <file>:<layer>`) には、リポジトリと component ごとに一度、許可を求めます。端末でなければ何も変えずに止まり、`tmiki plugin trust <id>` (か `plugin.trust=allow`) で許すよう案内します。
 - 書き戻した結果は、同じプラグインで読み直して確かめます: 書き換えたレイヤーが新しい画素になっていて、ほかのレイヤーの画素とプロパティ・キャンバスが元のままであること。通らなければ作業ファイルは置き換えません (マージならそのファイルは衝突になります)。未保存の変更がある作業ファイルは、置き換える前に退避します (`tmiki recover --files`)。
 - 書き戻しのできないプラグインで、両側が変えたファイルのマージは、ファイル全体の衝突になります。どちらがどのレイヤーを変えたかを示すので、`tmiki restore --ours <file>` か `--theirs <file>` で片方を選び、もう片方の変更は描画アプリで入れ直してください (両方の版とレイヤーの PNG は `.tmi/conflicts/<file>/` にあります)。
-- 合成画像 (サムネイル・diff の画像・`restore --output x.png`) は、プラグインが返したものがあればそれを使います。ORA なら `mergedimage.png` をそのまま使い、レイヤーから合成し直しません (無いときだけ tmi が合成します)。`mergedimage.png` を更新しないツールで編集すると、レイヤーの差分は出てもサムネイルは変わりません。
+- 合成画像 (サムネイル・diff の画像・`restore --output x.png`) は、プラグインが返したものがあればそれを使います。ORA なら `mergedimage.png` をそのまま使い、レイヤーから合成し直しません (無いときだけ tmiki が合成します)。`mergedimage.png` を更新しないツールで編集すると、レイヤーの差分は出てもサムネイルは変わりません。
 - プラグインが無い・読めない・信頼されていないとき: `add` / `commit -a` / `mv` / `stash push` は止まります (不透明として黙って記録はしません)。`status` は「(layer details need plugin 'ora')」、作業ツリーとの `diff` はファイル単位の比較になり、コミット同士の `diff`・`log`・`show`・`switch`・`checkout`・ファイル全体の `restore` はそのまま使えます。`ls-layers` は版を付ければ記録済みの木を出します (`tmiki ls-layers art.ora HEAD`。版なしだと、作業ツリーのファイルが記録と違うときに取り込もうとして止まります)。両側で変えたファイルのマージは衝突になり、`--ours` / `--theirs` で選びます。
 - プラグインをやめるとき: `tmiki plugin remove ora` は `.tmiplugins/ora.wasm` を消し、`.tmiattributes` から `format=plugin:ora` を外し、そのプラグインで読んでいた追跡中のファイルを作業ツリーの中身から取り込み直します (ORA なら不透明なファイルになります)。どれもステージされるので、`tmiki commit` で確定します。前の commit の記録はそのままです (`tmiki ls-layers art.ora HEAD~1`)。`.tmiplugins/ora.wasm` だけを `tmiki rm` すると `.tmiattributes` に対応づけが残り、以後そのファイルを add できなくなるので、警告が出ます。
 - `plugin.fuel` (1 回の呼び出しの命令数)・`plugin.timeout` (秒)・`plugin.maxMemory` (バイト。`512m` のような書き方も可) で上限を変えられます。コンパイル結果は `%LOCALAPPDATA%\tmi\plugin-cache` (`TMI_PLUGIN_CACHE` で変更) にキャッシュします。
@@ -311,24 +311,24 @@ tmiki merge side                                     # 両側で別のレイヤ�
 
 ### プラグインを作る
 
-`tmi` の実行ファイルに、プラグインを書く人のための道具が入っています (PLUGINS.md 7.1。リポジトリの外で使います)。プラグインは Rust で書きます (PLUGINS.md 11 節 Q14。速さと軽さのため。AI に書かせる前提なので、作者の言語の好みより実行時の速さを取りました)。インターフェースの全部は `PLUGIN_SPEC.md` (`rust\crates\tmi-plugin-tools\PLUGIN_SPEC.md`。`plugin new` がプラグインのディレクトリにも書き出します) にあり、それだけを AI に渡して書かせられるように書いてあります。
+`tmiki` の実行ファイルに、プラグインを書く人のための道具が入っています (PLUGINS.md 7.1。リポジトリの外で使います)。プラグインは Rust で書きます (PLUGINS.md 11 節 Q14。速さと軽さのため。AI に書かせる前提なので、作者の言語の好みより実行時の速さを取りました)。インターフェースの全部は `PLUGIN_SPEC.md` (`rust\crates\tmi-plugin-tools\PLUGIN_SPEC.md`。`plugin new` がプラグインのディレクトリにも書き出します) にあり、それだけを AI に渡して書かせられるように書いてあります。
 
 ```powershell
-tmiki plugin new kra --writer               # kra\ に Rust の雛形 (作り物の「tmi sample」形式を読む)
+tmiki plugin new kra --writer               # kra\ に Rust の雛形 (作り物の「tmiki sample」形式を読む)
 cd kra
 tmiki plugin doctor                         # cargo と wasm32-wasip2 が入っているか
 tmiki plugin build                          # component (target\tmi-plugin\kra.wasm) と開発用プラグインを作る
 tmiki plugin test                           # PLUGINS.md 7.1 の検査を全部 (失敗を全部挙げて 1 で終わる)
 tmiki plugin test --native                  # 同じコードの開発用プラグインが component と同じ答えを返すか
 tmiki plugin test --update                  # tests\corpus\*.expect.json を書く (以後は記録の変化を見張る)
-tmiki plugin test --fuzz 10000              # 壊したファイルでも tmi が落ちないか
+tmiki plugin test --fuzz 10000              # 壊したファイルでも tmiki が落ちないか
 tmiki plugin test --against old.wasm        # 前の版と記録がどう違うか
 tmiki plugin install target\tmi-plugin\kra.wasm   # %USERPROFILE%\.tmi\plugins\ に置く (TMI_PLUGIN_HOME で変更)
 tmiki plugin add kra                        # (リポジトリの中で) 置いた component を使う。kra@0.1.0 で版を指定
 ```
 
-- 雛形は SDK `tmi-plugin-sdk` (`rust\plugins\sdk`) の上に書いてあり、同じコードが component にも、標準入出力で tmi と話す普通のプログラム (開発用プラグイン) にもなります。プラグインのディレクトリはリポジトリの外にあるので、`plugin new` は SDK のソースの写しを `sdk\` に書き出します。
-- `--lang` は `rust` だけです (省略可)。`--lang python` などは「tmi のプラグインは Rust で書く」と言って断ります。
+- 雛形は SDK `tmi-plugin-sdk` (`rust\plugins\sdk`) の上に書いてあり、同じコードが component にも、標準入出力で tmiki と話す普通のプログラム (開発用プラグイン) にもなります。プラグインのディレクトリはリポジトリの外にあるので、`plugin new` は SDK のソースの写しを `sdk\` に書き出します。
+- `--lang` は `rust` だけです (省略可)。`--lang python` などは「tmiki のプラグインは Rust で書く」と言って断ります。
 - 開発用プラグインは、component を作り直さずに本物のコマンドで試せます: `tmiki plugin dev target\debug\kra-dev -- add a.kra`。`--` が無ければ info と `.tmiattributes` の対応を見せます。環境変数 `TMI_PLUGIN_DEV` (プログラム、またはその JSON の配列) でも指せます。開発用プラグインの記録は `component_sha256 = "dev"` を持ち、`commit`・`stash` が断ります。サンドボックスの外で動く自分のプログラムなので、信頼と書き戻しの同意は聞きません。
 
 ## 設定
@@ -367,7 +367,7 @@ tmiki config --unset diff.retain
 | `clone <url> [dir]` | クローン |
 | `merge <rev> [-m MSG]` / `merge --abort` | マージ / 中止 |
 | `hook [list\|run <name>]` | フックの確認・実行 |
-| `plugin [add <file.wasm\|id[@version]> [pattern...] [--force]\|list\|prepare\|reimport <id>\|trust <id> [--revoke]\|remove <id>]` | 形式プラグイン (`tmi` の実行ファイルだけ) |
+| `plugin [add <file.wasm\|id[@version]> [pattern...] [--force]\|list\|prepare\|reimport <id>\|trust <id> [--revoke]\|remove <id>]` | 形式プラグイン (`tmiki` の実行ファイルだけ) |
 | `plugin [new <id> [--lang rust] [--writer]\|build [dir]\|test [dir\|x.wasm] [--native] [--native-command cmd] [--update] [--fuzz N] [--against old.wasm] [--dump]\|doctor [dir]\|install <x.wasm>\|dev <program> [args...] [-- <command>...]]` | プラグインを書く人の道具 (リポジトリの外。`dev` は中でも) |
 | `gc [--prune <spec>]` | 到達不能オブジェクトの掃除 |
 | `recover` / `reflog` `[--as branch] [rev]` / `recover --files` / `recover --file N` | HEAD 履歴の表示 / 復旧、自動退避ファイルの復元 |

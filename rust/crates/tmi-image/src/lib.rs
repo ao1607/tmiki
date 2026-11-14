@@ -3,12 +3,12 @@
 //! palette, transparency), so `tmi_pillow::convert` turns it into the bytes
 //! `.convert("RGBA")` gives; encoders configured as Pillow's.
 //!
-//! [`open`] / [`decode_rgba`] read PNG and JPEG, the formats tmi routes here
+//! [`open`] / [`decode_rgba`] read PNG and JPEG, the formats tmiki routes here
 //! today. [`open_any`] / [`decode_rgba_any`] add the formats of PLUGINS.md
 //! P0a–c (GIF, BMP / DIB, TIFF, WebP, PSD), each pixel for pixel as Pillow
 //! 12.3.0 opens it; what one of them cannot reproduce is
 //! [`DecodeError::Declined`], never different pixels. [`import::open_for_import`]
-//! is tmi's rule for which files are images at all (P0e): those these
+//! is tmiki's rule for which files are images at all (P0e): those these
 //! decoders read; anything else is an opaque blob.
 
 pub mod bmp;
@@ -40,7 +40,7 @@ pub enum DecodeError {
     /// Data Pillow 12.3.0 refuses too (`Image.open` or `load` raises).
     Corrupt(Format, String),
     /// More pixels than the caller's limit (Pillow's decompression-bomb
-    /// check, which tmi sets to its own limit).
+    /// check, which tmiki sets to its own limit).
     TooLarge(usize, usize),
     /// None of the formats this entry point reads.
     UnknownFormat,
@@ -52,17 +52,17 @@ impl std::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DecodeError::Png(png_dec::PngError::Decode(m)) => write!(f, "a PNG image is damaged: {m}"),
-            DecodeError::Png(png_dec::PngError::Unsupported) => write!(f, "a PNG image has a bit depth and colour type tmi does not read"),
+            DecodeError::Png(png_dec::PngError::Unsupported) => write!(f, "a PNG image has a bit depth and colour type tmiki does not read"),
             DecodeError::Jpeg(jpeg::JpegError::Libjpeg(m) | jpeg::JpegError::Corrupt(_, m)) => write!(f, "a JPEG image is damaged: {m}"),
-            DecodeError::Jpeg(jpeg::JpegError::Unsupported(m)) => write!(f, "a JPEG image tmi does not read: {m}"),
+            DecodeError::Jpeg(jpeg::JpegError::Unsupported(m)) => write!(f, "a JPEG image tmiki does not read: {m}"),
             DecodeError::Jpeg(jpeg::JpegError::Truncated) => write!(f, "a JPEG image is cut short"),
             DecodeError::Jpeg(jpeg::JpegError::TooLarge(w, h)) | DecodeError::TooLarge(w, h) => {
                 write!(f, "an image of {w}x{h} pixels is over the pixel limit")
             }
-            DecodeError::Convert(_) => write!(f, "an image in a colour mode tmi cannot convert"),
-            DecodeError::Declined(m) => write!(f, "an image tmi does not decode itself: {m}"),
+            DecodeError::Convert(_) => write!(f, "an image in a colour mode tmiki cannot convert"),
+            DecodeError::Declined(m) => write!(f, "an image tmiki does not decode itself: {m}"),
             DecodeError::Corrupt(fmt, m) => write!(f, "a {} image is damaged: {m}", fmt.name().to_ascii_uppercase()),
-            DecodeError::UnknownFormat => write!(f, "an image in a format tmi does not read"),
+            DecodeError::UnknownFormat => write!(f, "an image in a format tmiki does not read"),
         }
     }
 }
@@ -97,7 +97,7 @@ impl Format {
     }
 }
 
-/// The `info` entries tmi reads from an opened image (after `load()` and
+/// The `info` entries tmiki reads from an opened image (after `load()` and
 /// `convert("RGBA")`, which keeps them).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Info {

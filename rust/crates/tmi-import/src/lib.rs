@@ -1,5 +1,5 @@
 //! tmi/importers.py in Rust (RUST_MIGRATION.md 3b-2): a working file
-//! (CLIP, MDP2, PNG / JPEG) into what tmi stores for it: the layer records
+//! (CLIP, MDP2, PNG / JPEG) into what tmiki stores for it: the layer records
 //! (`ImportedLayer`), their pixel digests and TMIL blobs, the composite PNG
 //! (tagged `tmi-composite` when it is a layered render a later version can
 //! build on), its thumbnail, `canvas_meta` and `source_meta`, and the
@@ -15,8 +15,8 @@
 //! blob after a parse error, an image over `core.maxImagePixels`, a value
 //! of an unexpected type in a CLIP database), the import returns `Decline`
 //! and the caller hands the whole command to Python. Whether a file is an
-//! image at all is tmi's own rule (`tmi_image::import`, PLUGINS.md P0e): no
-//! Pillow, and no `Decline` for a file tmi cannot read, which is stored as
+//! image at all is tmiki's own rule (`tmi_image::import`, PLUGINS.md P0e): no
+//! Pillow, and no `Decline` for a file tmiki cannot read, which is stored as
 //! an opaque blob.
 
 pub mod cache;
@@ -291,7 +291,7 @@ fn composite_pngs_reporting(image: &Rgba, text: Option<(String, String)>, progre
     Ok((png?, thumb?))
 }
 
-/// tmi's PNG of RGBA pixels (mtpng).
+/// tmiki's PNG of RGBA pixels (mtpng).
 pub fn png(image: &Rgba, text: Option<&(String, String)>) -> Res<Vec<u8>> {
     tmi_codec::png_enc::check_args(&image.data, image.width as u32, image.height as u32, text).map_err(decline)?;
     tmi_codec::png_enc::encode(&image.data, image.width as u32, image.height as u32, text)

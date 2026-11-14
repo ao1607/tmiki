@@ -181,7 +181,7 @@ pub fn decode_bitmap(env: &DecodeEnv, bitmap: &Bitmap) -> Result<DecodedBitmap, 
     }
 }
 
-/// `bitmap`'s pixels as the `LayerCrop` tmi records: `decode_bitmap` cut by
+/// `bitmap`'s pixels as the `LayerCrop` tmiki records: `decode_bitmap` cut by
 /// `LayerCrop::from_full`, byte for byte, but tiles go through
 /// `sparse::decode`, which never allocates the whole bitmap.
 pub fn decode_layer_crop(env: &DecodeEnv, bitmap: &Bitmap) -> Result<tmi_import::crop::LayerCrop, ReadError> {

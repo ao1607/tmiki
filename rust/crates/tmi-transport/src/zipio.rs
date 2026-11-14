@@ -199,7 +199,7 @@ fn u64_at(b: &[u8], i: usize) -> u64 {
 /// One member of a zip being read.
 pub struct Entry {
     /// The name as `zipfile` decodes it (UTF-8 when flagged, else cp437;
-    /// bytes above 0x7f become U+FFFD here: no tmi name has them).
+    /// bytes above 0x7f become U+FFFD here: no tmiki name has them).
     pub name: String,
     flags: u16,
     method: u16,

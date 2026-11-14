@@ -4,7 +4,7 @@ use crate::cbor::{Value, ValueError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Message {
-    /// tmi calls an export: `{"call": name, "args": [..]}`.
+    /// tmiki calls an export: `{"call": name, "args": [..]}`.
     Call { func: String, args: Vec<Value> },
     /// The plugin calls a host function: `{"import": name, "args": [..]}`.
     Import { func: String, args: Vec<Value> },

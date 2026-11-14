@@ -53,7 +53,7 @@ pub fn append(repo_dir: &Path, ref_name: &str, old: Option<&str>, new: &str, ide
     let path = log_path(repo_dir, ref_name);
     crate::fsio::mkdir_parent(&path)?;
     let (name, email) = identity.unwrap_or(("", ""));
-    let name = if name.is_empty() { "tmi" } else { name };
+    let name = if name.is_empty() { "tmiki" } else { name };
     let old = old.filter(|o| !o.is_empty()).unwrap_or(ZERO_OID);
     let timestamp = crate::clock::reflog_stamp(crate::clock::now());
     let safe_reason = reason.replace(['\n', '\t'], " ");

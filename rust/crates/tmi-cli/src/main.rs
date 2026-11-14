@@ -57,7 +57,7 @@ fn unsupported(out: &mut Out, why: &str) -> i32 {
 /// Run the command `argv` (without the program name): its exit code, the
 /// output held in `out`.
 fn run(argv: &[String], out: &mut Out) -> i32 {
-    // `plugin dev <program> ...`: the program's own arguments (and the tmi
+    // `plugin dev <program> ...`: the program's own arguments (and the tmiki
     // command after `--`) are not argparse's (P8; `-h` still is)
     if let [plugin, dev, program, ..] = argv {
         if plugin == "plugin" && dev == "dev" && program != "-h" && program != "--help" {

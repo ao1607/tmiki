@@ -1,4 +1,4 @@
-# {{id}}: a tmi format plugin on tmi-plugin-sdk. `tmiki plugin build` runs
+# {{id}}: a tmiki format plugin on tmi-plugin-sdk. `tmiki plugin build` runs
 # `cargo build --release --target wasm32-wasip2` (the component) and
 # `cargo build --features dev` (the same code as a development plugin,
 # target/debug/{{id}}-dev).
@@ -22,7 +22,7 @@ required-features = ["dev"]
 
 [dependencies]
 # sdk/: the copy of tmi-plugin-sdk (and the wire it speaks, tmi-plugin-dev)
-# that `tmiki plugin new` wrote for this tmi; it pins wit-bindgen, whose
+# that `tmiki plugin new` wrote for this tmiki; it pins wit-bindgen, whose
 # version decides the code written for wit/
 tmi-plugin-sdk = { path = "sdk/tmi-plugin-sdk" }
 

@@ -194,7 +194,7 @@ fn dev_fault(src: &SourceFile) {
             std::thread::sleep(std::time::Duration::from_secs(3600));
         }
         "bad-handle" => {
-            // pixels that were never given: tmi traps the import
+            // pixels that were never given: tmiki traps the import
             let _ = codecs::crc32(&sdk::Bytes::Span(sdk::Span { offset: u64::MAX, len: 1 }));
         }
         _ => {}

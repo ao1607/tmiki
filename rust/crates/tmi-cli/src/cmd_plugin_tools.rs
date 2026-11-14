@@ -29,7 +29,7 @@ pub fn new(argv: &[String], out: &mut Out) -> CmdResult {
     let o = tmi_plugin_tools::new::Options { id, writer: args::get_flag(&m, "writer") };
     let cwd = std::env::current_dir().map_err(|e| err(e.to_string()))?;
     let dir = tmi_plugin_tools::new::run(&cwd, &o, &mut |l| out.println(l)).map_err(err)?;
-    // tmi wrote this directory itself: building it is not asking about somebody else's code
+    // tmiki wrote this directory itself: building it is not asking about somebody else's code
     if let Ok(digest) = Manifest::read(&dir).and_then(|m| tmi_plugin_tools::build::consent_digest(&m)) {
         let _ = trust::grant_dir(&dir, DirAction::Build, &digest, "plugin new");
     }

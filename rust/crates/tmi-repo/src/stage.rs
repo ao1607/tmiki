@@ -577,7 +577,7 @@ impl<'a> Stager<'a> {
             Some(s) => s,
             None => read_file_digest(&full)?,
         };
-        // A file whose bytes tmi has not stored needs at least that much room:
+        // A file whose bytes tmiki has not stored needs at least that much room:
         // say so before writing anything (issue #42).
         let known = |e: Option<&Value>| e.and_then(|e| e.get("source_digest")).and_then(Value::as_str) == Some(digest.as_str());
         if !known(index_entries.get(&rel)) && !known(head_entry.as_ref()) {

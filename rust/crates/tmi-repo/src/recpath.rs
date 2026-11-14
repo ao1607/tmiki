@@ -182,7 +182,7 @@ pub fn join_checked(root: &Path, rel: &str) -> Result<PathBuf> {
     Ok(join_rel(root, &RelPath::new(rel)?))
 }
 
-/// For the names tmi itself makes (the directories `init` creates, the
+/// For the names tmiki itself makes (the directories `init` creates, the
 /// refs a rename moves): `rel`'s parts joined with the platform separator.
 /// Never for a path a tree records.
 pub fn join_trusted(root: &Path, rel: &str) -> PathBuf {
@@ -205,7 +205,7 @@ fn is_link(path: &Path) -> bool {
 
 /// The file `rel` names under `worktree`: the rule, the place (inside the
 /// working tree, outside `repo_dir`), and no symbolic link or junction on the
-/// way (tmi does not track links; writing through one would leave the working
+/// way (tmiki does not track links; writing through one would leave the working
 /// tree). `Err` with a sentence otherwise.
 pub fn worktree_path(worktree: &Path, repo_dir: &Path, rel: &str) -> Result<PathBuf> {
     let rel_path = RelPath::new(rel)?;

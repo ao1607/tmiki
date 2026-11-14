@@ -1,6 +1,6 @@
-//! The made-up "tmi sample" format the templates read (their SPEC.md
-//! describes it): files for `tests/corpus/`, made with tmi's own PNG
-//! encoder so that every build of tmi writes the same bytes.
+//! The made-up "tmiki sample" format the templates read (their SPEC.md
+//! describes it): files for `tests/corpus/`, made with tmiki's own PNG
+//! encoder so that every build of tmiki writes the same bytes.
 
 pub const MAGIC: &[u8; 8] = b"TMISMPL1";
 

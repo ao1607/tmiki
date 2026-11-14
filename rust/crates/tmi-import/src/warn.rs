@@ -1,4 +1,4 @@
-//! The warnings tmi prints to stderr while importing, with the
+//! The warnings tmiki prints to stderr while importing, with the
 //! de-duplication of clip.py's `_warn_*` functions (once per process for an
 //! offscreen, a tile size, a composite id, a filter id).
 

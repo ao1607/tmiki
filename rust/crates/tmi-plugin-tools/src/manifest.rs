@@ -143,7 +143,7 @@ mod tests {
         let write = |lang: &str| std::fs::write(dir.join(super::FILE), format!("[plugin]\nid = \"x\"\n{lang}")).unwrap();
         write("lang = \"python\"\n");
         let e = super::Manifest::read(&dir).unwrap_err();
-        assert!(e.ends_with("lang = \"python\": tmi format plugins are written in Rust: there is no python template, and 'tmiki plugin build' builds Rust plugins only ('tmiki plugin new <id>' writes one; PLUGIN_SPEC.md is written for an AI to write it from)"), "{e}");
+        assert!(e.ends_with("lang = \"python\": tmiki format plugins are written in Rust: there is no python template, and 'tmiki plugin build' builds Rust plugins only ('tmiki plugin new <id>' writes one; PLUGIN_SPEC.md is written for an AI to write it from)"), "{e}");
         write("lang = \"rust\"\n");
         assert_eq!(super::Manifest::read(&dir).unwrap().id, "x");
         write("");

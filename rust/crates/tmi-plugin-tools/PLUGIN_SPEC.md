@@ -1,10 +1,10 @@
-# PLUGIN_SPEC.md — tmi の形式プラグインの仕様（tmi:format@0.1.0）
+# PLUGIN_SPEC.md — tmiki の形式プラグインの仕様（tmi:format@0.1.0）
 
-tmi（イラストのファイル向けのバージョン管理）に新しいファイル形式を足す「形式プラグイン」の作り方の全部である。この文書とサンプルのファイルがあれば、プラグインを書き、`tmiki plugin test` を通すところまで進められるように書いてある。人が読んでも、AI に渡してもよい。`tmiki plugin new` がプラグインのディレクトリに書き出す（tmi の版と同じ内容）。
+tmiki（イラストのファイル向けのバージョン管理）に新しいファイル形式を足す「形式プラグイン」の作り方の全部である。この文書とサンプルのファイルがあれば、プラグインを書き、`tmiki plugin test` を通すところまで進められるように書いてある。人が読んでも、AI に渡してもよい。`tmiki plugin new` がプラグインのディレクトリに書き出す（tmiki の版と同じ内容）。
 
-- 対象のインターフェース：`tmi:format@0.1.0`（実験版）。`wit/tmi-format.wit` に全文がある（1.1 にも同じものを載せた）。1.0 になるまで型が変わることがあり、そのときは tmi が記録を取り込み直す手順を出す。
-- 言語：**Rust**。プラグインは Rust で書き、`wasm32-wasip2` の WebAssembly の component（world `format-reader` か `format-plugin`）にする。tmi が雛形（`tmiki plugin new`）・SDK（wit-bindgen 0.63 の上の `tmi-plugin-sdk`）・`tmiki plugin build` を持つのは Rust だけで、ほかの言語で作った component は大きすぎて tmi が読み込まない（Rust の component は速く小さい：インスタンスの作成 50 µs ほど、数百 KB）。同じコードを開発用プラグインとしても動かせる（11 節）。
-- 用語：「ホスト」は tmi、「プラグイン」はあなたが書く component。「記録」は tmi がリポジトリに保存するもの（レイヤーの木、各レイヤーの画素の SHA-256、レイヤーの blob、合成画像）。
+- 対象のインターフェース：`tmi:format@0.1.0`（実験版）。`wit/tmi-format.wit` に全文がある（1.1 にも同じものを載せた）。1.0 になるまで型が変わることがあり、そのときは tmiki が記録を取り込み直す手順を出す。
+- 言語：**Rust**。プラグインは Rust で書き、`wasm32-wasip2` の WebAssembly の component（world `format-reader` か `format-plugin`）にする。tmiki が雛形（`tmiki plugin new`）・SDK（wit-bindgen 0.63 の上の `tmi-plugin-sdk`）・`tmiki plugin build` を持つのは Rust だけで、ほかの言語で作った component は大きすぎて tmiki が読み込まない（Rust の component は速く小さい：インスタンスの作成 50 µs ほど、数百 KB）。同じコードを開発用プラグインとしても動かせる（11 節）。
+- 用語：「ホスト」は tmiki、「プラグイン」はあなたが書く component。「記録」は tmiki がリポジトリに保存するもの（レイヤーの木、各レイヤーの画素の SHA-256、レイヤーの blob、合成画像）。
 
 ## 0. 全体像
 
@@ -322,7 +322,7 @@ world format-plugin {
 }
 ```
 
-`wit/` は書き換えない。tmi はこの版の名前（`tmi:format/reader@0.1.0` など）で component をつなぐ。
+`wit/` は書き換えない。tmiki はこの版の名前（`tmi:format/reader@0.1.0` など）で component をつなぐ。
 
 ### 1.2 呼び出しの約束
 
@@ -330,7 +330,7 @@ world format-plugin {
 - `read-structure` はファイル 1 つにつき 1 回呼ばれる。`read-layer` は deferred にしたレイヤーごとに、**別のインスタンスから並列に、どの順でも**呼ばれる。だから `read-layer` の答えは `context` と `token` とファイルの中身だけで決まらなければならない。
 - `probe` は `head`（ファイルの先頭の `probe-bytes` バイト。ファイルが短ければそれだけ）と大きさだけを見る。ファイル全体は渡らない。
 - 1 回の呼び出しの上限：燃料（命令数）2×10¹⁰、実時間 120 秒、メモリ 1 GiB、wasm のスタック 8 MiB（利用者が `plugin.fuel`・`plugin.timeout`・`plugin.maxMemory` で変えられる）。超えると取り込みは失敗する（「ran out of fuel」など）。`tmiki plugin test` は燃料とスタックが 1/4 でも同じ記録になることを求める。
-- stdout・stderr は呼び出しごとに 1 MiB のメモリの管。記録には入らない。環境変数 `TMI_PLUGIN_LOG=1` のとき、`log.emit` の行と一緒に tmi の stderr に出る。Rust の `panic!` の文は、取り込みが失敗したときの理由として利用者に見える（`crashed (panic: ...)`）。
+- stdout・stderr は呼び出しごとに 1 MiB のメモリの管。記録には入らない。環境変数 `TMI_PLUGIN_LOG=1` のとき、`log.emit` の行と一緒に tmiki の stderr に出る。Rust の `panic!` の文は、取り込みが失敗したときの理由として利用者に見える（`crashed (panic: ...)`）。
 
 ### 1.3 `info` と `probe`
 
@@ -361,7 +361,7 @@ world format-plugin {
 | 項目 | 意味 |
 |---|---|
 | `id` | 記録の `layer_id`。人や外部のツールが指すための id。ファイルが持つ id があればそれ、無ければ `stable-id` と同じでよい |
-| `stable-id` | ファイルの中で一意。**同じレイヤーなら、ファイルを保存し直しても同じ値**にする（tmi はこれでレイヤーを突き合わせて diff・マージする）。ファイルがレイヤーごとの UUID や番号を持っていればそれを使う。無ければ木の中の位置（`ora:1/0` のように親からの道筋）を使う |
+| `stable-id` | ファイルの中で一意。**同じレイヤーなら、ファイルを保存し直しても同じ値**にする（tmiki はこれでレイヤーを突き合わせて diff・マージする）。ファイルがレイヤーごとの UUID や番号を持っていればそれを使う。無ければ木の中の位置（`ora:1/0` のように親からの道筋）を使う |
 | `name` | レイヤー名。UTF-8 にして渡す |
 | `kind` | `raster`・`folder`・`text`・`vector`・`adjustment`・`fill`・`paper`・`mask`・`stencil`・`unknown`。`mask`・`stencil`・`adjustment` は合成で描かれない |
 | `visible` | 非表示なら false（合成で描かれず、非表示のフォルダーの中も描かれない） |
@@ -401,7 +401,7 @@ world format-plugin {
 | `log` | `emit(level, message)` | `TMI_PLUGIN_LOG=1` のときだけ表示。記録に影響しない |
 | `edit` | 6 節 | 書き戻しの呼び出しの中でだけ使える |
 
-WASI：component が import してよいのは `tmi:format/*` と WASI 0.2 の cli・io・clocks・filesystem（types・preopens）・random だけ。`wasi:sockets`・`wasi:http` などを import する component は、tmi が読み込みの時点で断る。ファイルシステムは空、環境変数・引数は空、stdin は閉じている、時計は 0 で止まっている、乱数は固定の種。Rust の `wasm32-wasip2` の std は上の範囲に収まる。
+WASI：component が import してよいのは `tmi:format/*` と WASI 0.2 の cli・io・clocks・filesystem（types・preopens）・random だけ。`wasi:sockets`・`wasi:http` などを import する component は、tmiki が読み込みの時点で断る。ファイルシステムは空、環境変数・引数は空、stdin は閉じている、時計は 0 で止まっている、乱数は固定の種。Rust の `wasm32-wasip2` の std は上の範囲に収まる。
 
 大きさ：1 つの component が持てる core instance（中で instantiate される core module）は 16 個、メモリは 4 個、テーブルは 8 個まで。`tmi-plugin-sdk` の上の Rust の component は core instance 4〜5 個・メモリ 1 個・テーブル 2 個で、十分に収まる。超える component は読み込みの時点で断られる。
 
@@ -530,11 +530,11 @@ recipe を作るのに時間がかかるレイヤー（タイルの表を全部�
 
 - 列の最後の段の出力の長さは、`raster` ならレイアウトの長さとちょうど同じでなければならない（短くても長くても失敗）。画像（`encoded-image.pre`）とメタ情報（`codecs.transform`）では長さの決まりは無い（上限だけ）。
 - どの段も、展開は 1 GiB まで。
-- 実装で結果が変わりうるもの（JPEG のデコード、非可逆の WebP）は名前に世代が付く（`jpeg-v1`）。tmi は一度出した世代の出力を変えない。
+- 実装で結果が変わりうるもの（JPEG のデコード、非可逆の WebP）は名前に世代が付く（`jpeg-v1`）。tmiki は一度出した世代の出力を変えない。
 
 ## 4. 決定性
 
-記録は**元ファイルのバイト・ファイル名・component のバイトだけで決まる**。OS・CPU・tmi の版・呼び出しの順に依らない。プラグインが守ること：
+記録は**元ファイルのバイト・ファイル名・component のバイトだけで決まる**。OS・CPU・tmiki の版・呼び出しの順に依らない。プラグインが守ること：
 
 - 出力（structure・recipe・警告・write-plan）を、ファイルの中身だけから計算する。ファイル名は `name` のレイヤー名の既定値くらいにしか使わない。
 - 呼び出しの間で状態を持たない（1.2）。キャッシュを作らない。
@@ -568,7 +568,7 @@ recipe を作るのに時間がかかるレイヤー（タイルの表を全部�
 
 `write-layers(src, edits, pixels)`：
 
-- `edits`：書き換えるレイヤー（`stable-id`）と、新しい画素の番号（`new-pixels`。`pixels` の列の位置）。`props`（名前・表示・不透明度・モード・オフセット）は今の tmi はまだ渡さない。対応しないなら `unsupported` を返す。
+- `edits`：書き換えるレイヤー（`stable-id`）と、新しい画素の番号（`new-pixels`。`pixels` の列の位置）。`props`（名前・表示・不透明度・モード・オフセット）は今の tmiki はまだ渡さない。対応しないなら `unsupported` を返す。
 - `pixels`：新しい画素（`edit.pixels`）。レイヤーのビットマップ全体で、左上がレイヤーの `offset-x`・`offset-y` に来る。
 - 返すのは `write-plan { pieces, warnings }`。ホストが `pieces` を順につなげて新しいファイルにする：
   - `source(span)`：元のファイルの範囲をそのまま写す（大きなバイト列をプラグインに通さない）。
@@ -579,7 +579,7 @@ recipe を作るのに時間がかかるレイヤー（タイルの表を全部�
 - `pixels.width/height/bbox`（alpha が 0 でない画素の外接矩形 `(x0, y0, x1, y1)`。全部透明なら none）。
 - `pixels.read(x, y, w, h, layout)`：範囲を `layout` の形のバイト列にする（`eight`・`sixteen-*` だけ。16 ビットは 8 ビットの値 ×257、`gray` は Pillow の L、`premultiplied` は Pillow の RGBA→RGBa。`tint` は断る）。
 - `encode-tile(px, x, y, w, h, layout, steps)`：`read` してから `raw`・`zlib(zlib-v131, level)`・`deflate(zlib-v131, level)` を順にかけた blob。zlib 1.3.1 で圧縮するので、同じ画素からは同じバイトになる。
-- `encode-image(px, png-v1)`：tmi の PNG の符号化器（8 ビット RGBA）。`jpeg-keep-v1`・`webp-v1` はまだ無い（エラーを返す）。
+- `encode-image(px, png-v1)`：tmiki の PNG の符号化器（8 ビット RGBA）。`jpeg-keep-v1`・`webp-v1` はまだ無い（エラーを返す）。
 - `composite-after-edit()`：編集後の文書を `generic-v1` で**透明の背景に**描いた絵（キャンバスの大きさ）。ファイルが埋め込みの合成画像を持つとき、それを作り直すのに使う。
 - `thumbnail(px, max-side)`：縦横比を保って `max-side` に収めた縮小（Pillow の `thumbnail`、LANCZOS）。
 
@@ -615,7 +615,7 @@ recipe を作るのに時間がかかるレイヤー（タイルの表を全部�
 ## 9. AI に渡す指示文の雛形
 
 ```
-あなたは tmi の形式プラグイン <id>（<形式名>、拡張子 <.ext>）を Rust で書く。
+あなたは tmiki の形式プラグイン <id>（<形式名>、拡張子 <.ext>）を Rust で書く。
 作業ディレクトリは tmiki plugin new <id> [--writer] で作ったもの。
 1. PLUGIN_SPEC.md を全部読む。AGENTS.md の手順に従う。
 2. 10 節の完全な例（OpenRaster）を読む。tests/corpus/ のサンプルを調べ、分かったこと（オフセット・大きさ・意味・どのサンプルで確かめたか）を SPEC.md に書く。
@@ -628,18 +628,18 @@ recipe を作るのに時間がかかるレイヤー（タイルの表を全部�
 
 ## 10. 完全な例：OpenRaster（Rust、`tmi-plugin-sdk`）
 
-OpenRaster（`.ora`）は zip で、`stack.xml`（レイヤーの木。**上から**並ぶ。`<stack>` が入れ子のグループ、`<layer src x y opacity visibility name composite-op>` がラスター）、レイヤーごとの PNG、合成画像 `mergedimage.png`、サムネイル `Thumbnails/thumbnail.png` を持つ。下は reader と writer の全部で、tmi のリポジトリの `rust/plugins/ora` そのもの（tmi のテストがこの節と同じであることを確かめている）。tmi が試験と計測に使うプラグインで、同じコードを 3 通りに作る：`wasm32-wasip2` の component（`export_plugin!`）、feature `dev` の開発用プラグイン `ora-dev`（11 節）、tmi のホストのテストが同じプロセスの中で component と比べるネイティブのライブラリ。
+OpenRaster（`.ora`）は zip で、`stack.xml`（レイヤーの木。**上から**並ぶ。`<stack>` が入れ子のグループ、`<layer src x y opacity visibility name composite-op>` がラスター）、レイヤーごとの PNG、合成画像 `mergedimage.png`、サムネイル `Thumbnails/thumbnail.png` を持つ。下は reader と writer の全部で、tmiki のリポジトリの `rust/plugins/ora` そのもの（tmiki のテストがこの節と同じであることを確かめている）。tmiki が試験と計測に使うプラグインで、同じコードを 3 通りに作る：`wasm32-wasip2` の component（`export_plugin!`）、feature `dev` の開発用プラグイン `ora-dev`（11 節）、tmiki のホストのテストが同じプロセスの中で component と比べるネイティブのライブラリ。
 
 要点：
-- コア（`lib.rs`・`zip.rs`・`write.rs`）は SDK の型を直接使わず、`model.rs` の素朴な型と trait `Host`・`WriteHost` を通してファイルとホストを見る。`plugin.rs` がそれを SDK の型に一対一で写す。tmi がネイティブでも同じコアを試すための分け方で、自分のプラグインでは雛形のように SDK の型を直接使えばよい。
+- コア（`lib.rs`・`zip.rs`・`write.rs`）は SDK の型を直接使わず、`model.rs` の素朴な型と trait `Host`・`WriteHost` を通してファイルとホストを見る。`plugin.rs` がそれを SDK の型に一対一で写す。tmiki がネイティブでも同じコアを試すための分け方で、自分のプラグインでは雛形のように SDK の型を直接使えばよい。
 - zip は中央ディレクトリから自分で読む（`zip.rs`）。名前は UTF-8 として読み（読めない所は置き換え）、同じ名前の後のメンバーが前を上書きし、stored・deflate 以外のメンバーは表から外す。メンバーの中身はコピーせず、ローカルヘッダの後ろの span を返す。プラグインを通るのは目次と `stack.xml` だけ（`codecs::transform` で展開）。
 - `stack.xml` は component の中で roxmltree で読む（1.7 の `xml` の行の勧めどおり。ホストの `xml` は使わない）。
-- 各レイヤーは `ready` で、PNG の span を返す（deflate のメンバーなら `pre: [deflate]`）。`<image tmi-test-defer="1">` のファイルだけは `deferred`（tmi の試験用の属性。`read-layer` の道を同じファイルで通すため）。
+- 各レイヤーは `ready` で、PNG の span を返す（deflate のメンバーなら `pre: [deflate]`）。`<image tmi-test-defer="1">` のファイルだけは `deferred`（tmiki の試験用の属性。`read-layer` の道を同じファイルで通すため）。
 - `stable-id` は木の中の道筋（`ora:1/0`：根の 2 番目のグループの 1 番目。下から数える）。ORA はレイヤーの id を持たないため。
 - 未知の `composite-op` は `other` と警告 `blend`。
 - 読めないときは `model::Error` を返し、`plugin.rs` が `ReadError` に直す。panic しない（長さ・オフセットは確かめてから使う）。
 - 書き戻しは zip を作り直す：触らないメンバーは `source`、編集したメンバーは新しいローカルヘッダ（`bytes`）＋ホストの PNG（`blob`）、合成画像とサムネイルは `composite-after-edit` と `thumbnail` から、中央ディレクトリはオフセットと CRC を直して `bytes`。`<image tmi-test-write-fault=...>` は、ホストの照合が間違った writer を止めることを試すための、わざと間違える試験用の属性。
-- `info` の版と `can-write` は、build のときの環境変数 `TMI_ORA_VERSION`・`TMI_ORA_READ_ONLY` で変えられる（tmi の conformance が複数の版を作るため）。自分のプラグインでは定数で書けばよい。
+- `info` の版と `can-write` は、build のときの環境変数 `TMI_ORA_VERSION`・`TMI_ORA_READ_ONLY` で変えられる（tmiki の conformance が複数の版を作るため）。自分のプラグインでは定数で書けばよい。
 
 このコードを `tmiki plugin new` のディレクトリに置いたときの `tmi-plugin.toml`（開発用プラグインはこの crate の `ora-dev`）：
 
@@ -661,12 +661,12 @@ command = "target/debug/ora-dev"
 
 ### `Cargo.toml`
 
-パッケージ。`[lib]` が cdylib（component）と rlib（tmi のテストがネイティブで使う）、feature `dev` が開発用プラグイン。`path = "../sdk"` は tmi のリポジトリの中の置き場所で、`tmiki plugin new` のディレクトリでは `sdk/tmi-plugin-sdk` になる。
+パッケージ。`[lib]` が cdylib（component）と rlib（tmiki のテストがネイティブで使う）、feature `dev` が開発用プラグイン。`path = "../sdk"` は tmiki のリポジトリの中の置き場所で、`tmiki plugin new` のディレクトリでは `sdk/tmi-plugin-sdk` になる。
 
 ```toml
 [package]
 name = "tmi-plugin-ora"
-description = "OpenRaster reader and writer for tmi (PLUGINS.md 7.3): written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
+description = "OpenRaster reader and writer for tmiki (PLUGINS.md 7.3): written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -697,7 +697,7 @@ tmi-plugin-sdk = { path = "../sdk" }
 reader の本体：`info`・`probe`・`read_structure`（`stack.xml` を roxmltree で読み、木を下から上へたどる）・`read_layer`。
 
 ```rust
-//! An OpenRaster (`.ora`) reader and writer for tmi (PLUGINS.md 7.3),
+//! An OpenRaster (`.ora`) reader and writer for tmiki (PLUGINS.md 7.3),
 //! written once on `tmi-plugin-sdk` ([`plugin::Ora`]) and built three ways:
 //!
 //! - for `wasm32-wasip2` it is a component of the `tmi:format/format-plugin`
@@ -1308,7 +1308,7 @@ impl Archive {
 
 ### `src/plugin.rs`
 
-`tmi_plugin_sdk::Plugin` の実装：コアの型を SDK（WIT）の型に一対一で写す。`dev_fault` は tmi の `tmiki plugin dev` の試験用。
+`tmi_plugin_sdk::Plugin` の実装：コアの型を SDK（WIT）の型に一対一で写す。`dev_fault` は tmiki の `tmiki plugin dev` の試験用。
 
 ```rust
 //! The plugin itself: [`Ora`] implements `tmi_plugin_sdk::Plugin` over the
@@ -1507,7 +1507,7 @@ fn dev_fault(src: &SourceFile) {
             std::thread::sleep(std::time::Duration::from_secs(3600));
         }
         "bad-handle" => {
-            // pixels that were never given: tmi traps the import
+            // pixels that were never given: tmiki traps the import
             let _ = codecs::crc32(&sdk::Bytes::Span(sdk::Span { offset: u64::MAX, len: 1 }));
         }
         _ => {}
@@ -1814,20 +1814,20 @@ fn main() {
 
 ## 11. 開発用プラグイン（`tmiki plugin dev`）と SDK
 
-component を作り直さずに試し、ネイティブのデバッガや `eprintln!` で調べるために、同じコードを**開発用プラグイン**（普通のプログラム）としても動かせる。開発用プラグインは標準入出力でホストと 1.1 の WIT の値をやりとりする。`tmiki plugin new` の雛形は、そのための SDK（`tmi-plugin-sdk`）の写しを `sdk/` に持っている（tmi が書いたもので、直さない）。
+component を作り直さずに試し、ネイティブのデバッガや `eprintln!` で調べるために、同じコードを**開発用プラグイン**（普通のプログラム）としても動かせる。開発用プラグインは標準入出力でホストと 1.1 の WIT の値をやりとりする。`tmiki plugin new` の雛形は、そのための SDK（`tmi-plugin-sdk`）の写しを `sdk/` に持っている（tmiki が書いたもので、直さない）。
 
 ```
 tmiki plugin build                         component と開発用プラグインを作る
 tmiki plugin test --native                 tmi-plugin.toml の [dev] command を動かし、component と同じ答えか確かめる（「1 native = wasm」）
 tmiki plugin test --native-command "<command>"  別のコマンドで（語を空白で区切る。空白を含む語は "..."。JSON の文字列の配列でもよい）
 tmiki plugin dev <program> [<arg>...]      開発用プラグインを起動して info を見せる（リポジトリの中なら .tmiattributes の対応も）
-tmiki plugin dev <program> [<arg>...] -- add a.ext   その tmi のコマンドを、.tmiplugins/<id>.wasm の代わりに開発用プラグインで動かす
+tmiki plugin dev <program> [<arg>...] -- add a.ext   その tmiki のコマンドを、.tmiplugins/<id>.wasm の代わりに開発用プラグインで動かす
 ```
 
 - 開発用プラグインが作った記録は `importer.component_sha256 = "dev"` を持ち、`commit`（`--amend`・マージのコミットも）と `stash` が断る。本番の記録は component を `tmiki plugin add` してから取り込み直す（`tmiki plugin reimport`）。
 - 開発用プラグインはサンドボックスの外で動く利用者自身のプログラムなので、信頼（`plugin.trust`）と書き戻しの同意は聞かれない。決定性も保証されない（1 つのプロセスがすべての呼び出しに答える）。1 回の呼び出しの時間の上限（`plugin.timeout`、既定 120 秒）だけがかかり、超えるとプロセスを止めて次の呼び出しで起動し直す。
 - 環境変数 `TMI_PLUGIN_DEV`：プログラムのパス、またはプログラムと引数の JSON の配列（`["target/debug/kra-dev", "-v"]`）、または複数のプラグインの配列の配列。`tmiki plugin dev ... --` はこれを付けてコマンドを動かす。
-- **他人のプラグインのディレクトリで `build`・`test --native` を打つのは、そのコードを実行すること**。`tmiki plugin build` は cargo を動かす（`build.rs`・マクロ・`.cargo/config.toml` はそのディレクトリの作者のコード）。`tmiki plugin test --native`（`--native-command` なし）は tmi-plugin.toml の `[dev] command`（ディレクトリに同梱された実行ファイルでもよい）をサンドボックスなしで動かす。clone したばかりのディレクトリで打つ前に中身を読む。tmi は、そのディレクトリ（実パス）と中身（build：tmi-plugin.toml の内容、`[dev] command`：コマンドと同梱プログラムのハッシュ）ごとに 1 度だけ同意を求め、`trust.json` の `directories` に覚える（内容が変わると聞き直す）。端末が無いときは断る。許すには、端末で 1 度打つか、そのコマンドだけ `TMI_PLUGIN_DIR_TRUST=allow` を付ける。自分が `tmiki plugin new` で作ったディレクトリと、自分が許した `build` が作った開発用プラグインは聞かれない。`--native-command` と `plugin dev <program>` は自分で打つコマンドなので聞かれない。tmi-plugin.toml の `build.output`・`test.corpus` はディレクトリの内側の相対パスだけ（`..`・絶対パス・ドライブ・`:` は断る）。
+- **他人のプラグインのディレクトリで `build`・`test --native` を打つのは、そのコードを実行すること**。`tmiki plugin build` は cargo を動かす（`build.rs`・マクロ・`.cargo/config.toml` はそのディレクトリの作者のコード）。`tmiki plugin test --native`（`--native-command` なし）は tmi-plugin.toml の `[dev] command`（ディレクトリに同梱された実行ファイルでもよい）をサンドボックスなしで動かす。clone したばかりのディレクトリで打つ前に中身を読む。tmiki は、そのディレクトリ（実パス）と中身（build：tmi-plugin.toml の内容、`[dev] command`：コマンドと同梱プログラムのハッシュ）ごとに 1 度だけ同意を求め、`trust.json` の `directories` に覚える（内容が変わると聞き直す）。端末が無いときは断る。許すには、端末で 1 度打つか、そのコマンドだけ `TMI_PLUGIN_DIR_TRUST=allow` を付ける。自分が `tmiki plugin new` で作ったディレクトリと、自分が許した `build` が作った開発用プラグインは聞かれない。`--native-command` と `plugin dev <program>` は自分で打つコマンドなので聞かれない。tmi-plugin.toml の `build.output`・`test.corpus` はディレクトリの内側の相対パスだけ（`..`・絶対パス・ドライブ・`:` は断る）。
 - **stdout はホストへの管**。開発用プラグインが stdout に何か書くと、ホストは「not a frame」で呼び出しを失敗にする。`println!` を使わず `eprintln!` を使う。stderr の行は `tmiki: plugin <id> (dev): ...` と表示される。
 
 **Rust**（`tmi-plugin-sdk`）：WIT の型（wit-bindgen 0.63 のもの）をそのまま使い、trait `tmi_plugin_sdk::Plugin` を実装する。`info`・`probe`・`read_structure` は必須、`read_layer`・`decode_chunk`・`write_layers` は既定で `unsupported` を返す。ホストの関数は `SourceFile`（`size`・`read`・`name`）、`codecs::{transform, crc32, sha256, image_info}`、`sqlite::Database`、`xml::parse`、`log::emit`、`edit::{Pixels, Blob, encode_tile, encode_image, composite_after_edit, thumbnail}`。書き戻しの答えは `WritePlan { pieces: Vec<Piece>, warnings }`（`Piece::Source(Span)`・`Bytes(Vec<u8>)`・`Blob(edit::Blob)`）。
@@ -1850,9 +1850,9 @@ impl t::Plugin for Plugin {
 
 SDK を使えば知らなくてよい。SDK を使わずに開発用プラグインを書くときの約束（配線は言語に依らない。crate `tmi-plugin-dev` の doc が正本）：
 
-- 1 つのメッセージは 1 つのフレーム：4 バイトのビッグエンディアンの長さ `n`（1〜1 GiB）と、ちょうど 1 つの CBOR の値（RFC 8949。長さの決まった形だけ、タグは使わない）。tmi はプラグインの stdin に書き、stdout から読む。
+- 1 つのメッセージは 1 つのフレーム：4 バイトのビッグエンディアンの長さ `n`（1〜1 GiB）と、ちょうど 1 つの CBOR の値（RFC 8949。長さの決まった形だけ、タグは使わない）。tmiki はプラグインの stdin に書き、stdout から読む。
 - WIT の値の CBOR：`bool` は true/false、整数は整数、`f64` は浮動小数（整数でも受ける）、`string` は text、`list<u8>` は byte string、その他の `list`・`tuple` は配列、`option` は null か値、`record` は WIT の綴りのフィールド名（`stable-id`）をキーにした map、`enum` はケース名の text（`pass-through`）、`variant` はケース名から中身への 1 項目の map（中身の無いケースは null：`{"deflate": null}`、`{"span": {"offset": 0, "len": 9}}`）、`result` は `{"ok": 値}` か `{"err": 値}`、resource はハンドルの番号。
-- メッセージ（どれも map）：`{"call": 名前, "args": [...]}`（tmi がプラグインの export を呼ぶ。名前は `reader.info`・`reader.probe`・`reader.read-structure`・`reader.read-layer`・`reader.decode-chunk`・`writer.write-layers` と `hello`。引数は WIT の順、`borrow<source-file>` はハンドル）、`{"import": 名前, "args": [...]}`（プラグインがホストの関数を呼ぶ：`codecs.transform`、resource のメソッドはハンドルを先頭に `source.source-file.read` `[h, offset, len]`、静的な関数は `sqlite.database.open` `[image]`、`<interface>.<resource>.drop` `[h]`）、`{"return": 値}`、`{"trap": 文}`。
-- 会話は入れ子：call のあと、プラグインは import をいくつでも送り（それぞれの答えを待つ）、最後に return か trap を 1 つ送る。tmi が import に trap で答えたら、プラグインはその call を trap で終える。ハンドルは 1 回の call の中だけで有効：元ファイルは 0、`write-layers` の画素は `0..n`、データベースは開いた順。
+- メッセージ（どれも map）：`{"call": 名前, "args": [...]}`（tmiki がプラグインの export を呼ぶ。名前は `reader.info`・`reader.probe`・`reader.read-structure`・`reader.read-layer`・`reader.decode-chunk`・`writer.write-layers` と `hello`。引数は WIT の順、`borrow<source-file>` はハンドル）、`{"import": 名前, "args": [...]}`（プラグインがホストの関数を呼ぶ：`codecs.transform`、resource のメソッドはハンドルを先頭に `source.source-file.read` `[h, offset, len]`、静的な関数は `sqlite.database.open` `[image]`、`<interface>.<resource>.drop` `[h]`）、`{"return": 値}`、`{"trap": 文}`。
+- 会話は入れ子：call のあと、プラグインは import をいくつでも送り（それぞれの答えを待つ）、最後に return か trap を 1 つ送る。tmiki が import に trap で答えたら、プラグインはその call を trap で終える。ハンドルは 1 回の call の中だけで有効：元ファイルは 0、`write-layers` の画素は `0..n`、データベースは開いた順。
 - 最初の call は `hello`（`args: [1]`、プロトコルの版）。答えは `{"protocol": 1, "abi": "tmi:format@0.1.0", "writer": bool}`（`writer`：writer を export するか。書き戻しには `info` の `can-write` も要る）。stdin が閉じたら終わる。
 - `tmiki plugin test` の「1 native = wasm」は、component の答えと開発用プラグインの答え（deferred を読んだ構造・記録・警告）を、この写し方の値にして**正規の CBOR**（RFC 8949 4.2.1：整数と長さは最短、浮動小数は値を変えない最短の幅、map は キーの符号の順）で比べる。違えば、最初に違う所を `layers[2].opacity: 0.5 vs 0.25` のように示す。

@@ -1,6 +1,6 @@
 [package]
 name = "tmi-plugin-host"
-description = "tmi's host for wasm format plugins (PLUGINS.md P5): the wasmtime engine, deterministic WASI, host helpers, limits, the compiled-component cache, the instance pool and the WasmReader"
+description = "tmiki's host for wasm format plugins (PLUGINS.md P5): the wasmtime engine, deterministic WASI, host helpers, limits, the compiled-component cache, the instance pool and the WasmReader"
 version.workspace = true
 edition.workspace = true
 

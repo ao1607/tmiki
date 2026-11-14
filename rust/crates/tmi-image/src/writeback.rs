@@ -1,5 +1,5 @@
 //! The colour mode a PNG / JPEG written back into a user's file gets
-//! (issue #21; tmi's `image_ops._fit_mode` before stage 2b): the original's
+//! (issue #21; tmiki's `image_ops._fit_mode` before stage 2b): the original's
 //! mode where the new RGBA pixels fit it exactly, else RGBA (PNG) / RGB
 //! (JPEG). Every PNG candidate is checked the way Python checked it: its
 //! `convert("RGBA")` (`tmi_pillow::convert`, Pillow-exact, colour keys

@@ -11,7 +11,7 @@ use tmi_plugin_host::Plugin;
 
 use crate::cbor::{self, V};
 
-/// The limits of the checks: what tmi allows by default (Pillow's floor).
+/// The limits of the checks: what tmiki allows by default (Pillow's floor).
 pub const LIMITS: Limits = Limits { layered: tmi_import::limit::FLOOR, raster: tmi_import::limit::FLOOR };
 
 /// `add`'s import: the composite and every layer blob.

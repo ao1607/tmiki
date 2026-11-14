@@ -1,4 +1,4 @@
-//! `pipeline::import` (PLUGINS.md 8.1): one reader, one file, into what tmi
+//! `pipeline::import` (PLUGINS.md 8.1): one reader, one file, into what tmiki
 //! stores. `read_structure`, the host's checks, the recipes decoded into
 //! `LayerCrop`s, `digest_and_encode`, the composite and its thumbnail, and
 //! the `ImportedFile` / `ImportedLayer` records `tmi-import` always made.
@@ -143,7 +143,7 @@ impl Importer {
 /// SHA-256 of the canonical JSON of its `semantic` entries).
 pub const PLUGIN_SEMANTIC_DIGEST_VERSION: i64 = 1;
 
-/// `write_capability` as tmi has always spelled it (PLUGINS.md 4.2).
+/// `write_capability` as tmiki has always spelled it (PLUGINS.md 4.2).
 pub fn write_capability_name(w: WriteCapability) -> &'static str {
     match w {
         WriteCapability::None => "metadata-only",

@@ -1,4 +1,4 @@
-//! Write a tmi format plugin once, run it two ways (PLUGINS.md 7.1, P8).
+//! Write a tmiki format plugin once, run it two ways (PLUGINS.md 7.1, P8).
 //!
 //! - Built for `wasm32-wasip2`, [`export_plugin!`] makes the crate a
 //!   component of the `tmi:format/format-plugin` world (wit-bindgen): what
@@ -31,13 +31,13 @@
 //! fn main() { tmi_plugin_sdk::dev_main::<mine::Mine>() }
 //! ```
 //!
-//! Natively, a plugin must not print to stdout (it is the pipe to tmi; use
-//! `eprintln!`, which tmi shows as `tmiki: plugin <id> (dev): ...`), and host
+//! Natively, a plugin must not print to stdout (it is the pipe to tmiki; use
+//! `eprintln!`, which tmiki shows as `tmiki: plugin <id> (dev): ...`), and host
 //! calls are made from the thread that runs the call.
 
 /// wit-bindgen's bindings of `tmi-format/wit` (world `format-plugin`). The
 /// types are used as they are; on a native target their import functions
-/// are unreachable (this crate's own functions call tmi instead).
+/// are unreachable (this crate's own functions call tmiki instead).
 #[allow(clippy::all, unused, unsafe_op_in_unsafe_fn)]
 pub mod bindings {
     wit_bindgen::generate!({
@@ -106,7 +106,7 @@ pub trait Plugin {
         Err(ReadError::Unsupported("this plugin has no codec of its own".into()))
     }
 
-    /// `writer.write-layers` (tmi calls it only when `info` says
+    /// `writer.write-layers` (tmiki calls it only when `info` says
     /// `can-write`). `edits` name their new pixels by index in `pixels`.
     fn write_layers(_src: &SourceFile, _edits: Vec<LayerEdit>, _pixels: Vec<edit::Pixels>) -> Result<WritePlan, WriteError> {
         Err(WriteError::Unsupported("this plugin does not write layers back".into()))

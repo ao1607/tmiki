@@ -9,7 +9,7 @@
 //! package `tmiref`). An offscreen it cannot read (stored pixels, a mask, an
 //! image material's original) is warned about and left out, as Python
 //! does (stage 1e). Whatever else this module does not reproduce, it
-//! declines (`Err`): tmi then reports that it cannot render the file.
+//! declines (`Err`): tmiki then reports that it cannot render the file.
 
 pub mod band;
 pub mod decode;

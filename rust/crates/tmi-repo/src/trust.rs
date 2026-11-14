@@ -366,7 +366,7 @@ pub fn describe(repo: &Repo, c: &Component) -> Result<String> {
 
 // -- plugin directories: running somebody else's code (PLUGINS.md 11) ---------
 
-/// What a plugin directory asks tmi to run.
+/// What a plugin directory asks tmiki to run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DirAction {
     /// `tmiki plugin build`: cargo runs the directory's build scripts, proc
@@ -422,7 +422,7 @@ fn dir_granted(dir: &std::path::Path, action: DirAction, content: &[u8]) -> bool
 
 /// Remembers that the user allowed `action` of `dir` for `content` (what
 /// [`require_dir_consent`] was given). `plugin new` and `plugin build` use
-/// it for what tmi itself made.
+/// it for what tmiki itself made.
 pub fn grant_dir(dir: &std::path::Path, action: DirAction, content: &[u8], detail: &str) -> Result<()> {
     let mut dirs = section("directories");
     let key = dir_key(dir);
@@ -436,7 +436,7 @@ pub fn grant_dir(dir: &std::path::Path, action: DirAction, content: &[u8], detai
     save_section("directories", dirs)
 }
 
-/// Before tmi runs code that came with a plugin directory (a clone, a
+/// Before tmiki runs code that came with a plugin directory (a clone, a
 /// download: somebody else's): asks once for this directory (its real path)
 /// and this `content` (the command, the bundled program's bytes, the
 /// manifest), remembers a yes in `trust.json` (`directories`), and asks again

@@ -11,7 +11,7 @@ pub struct Vars {
 }
 
 /// `text` with its blocks decided and its names replaced. Panics on an
-/// unknown name (the templates are tmi's own, checked by the tests).
+/// unknown name (the templates are tmiki's own, checked by the tests).
 pub fn render(text: &str, vars: &Vars) -> String {
     let mut out = String::with_capacity(text.len());
     let mut keep: Vec<bool> = Vec::new();

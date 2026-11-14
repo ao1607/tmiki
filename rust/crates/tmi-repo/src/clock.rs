@@ -1,6 +1,6 @@
-//! Times as tmi writes and reads them: `datetime.now(timezone.utc)` in its
+//! Times as tmiki writes and reads them: `datetime.now(timezone.utc)` in its
 //! `isoformat()` / `strftime` forms, `time.time_ns()`, and the ISO 8601
-//! texts `datetime.fromisoformat` reads (the forms tmi itself writes, and
+//! texts `datetime.fromisoformat` reads (the forms tmiki itself writes, and
 //! the plain ones a user types; anything else is left to Python).
 
 use std::time::{SystemTime, UNIX_EPOCH};

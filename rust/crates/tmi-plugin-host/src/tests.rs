@@ -337,7 +337,7 @@ fn a_component_over_the_pooling_slots_is_refused_with_a_sentence() {
         Err(e @ PluginError::Compile(_)) => assert_eq!(
             e.to_string(),
             format!(
-                "not a usable component: it has {} core instances and a plugin may have {n}: tmi runs format plugins written in Rust \
+                "not a usable component: it has {} core instances and a plugin may have {n}: tmiki runs format plugins written in Rust \
                  ('tmiki plugin new' writes one on tmi-plugin-sdk); a component made from another language is larger than that",
                 n + 22
             )
@@ -348,7 +348,7 @@ fn a_component_over_the_pooling_slots_is_refused_with_a_sentence() {
     let with_memory = b"\0asm\x01\0\0\0\x05\x03\x01\x00\x01";
     let m = crate::engine::MEMORIES_PER_COMPONENT as u8 + 1;
     match host().load(&component_instantiating(with_memory, m)) {
-        Err(PluginError::Compile(msg)) => assert!(msg.starts_with(&format!("it has {m} memories and a plugin may have {}: tmi runs", m - 1)), "{msg}"),
+        Err(PluginError::Compile(msg)) => assert!(msg.starts_with(&format!("it has {m} memories and a plugin may have {}: tmiki runs", m - 1)), "{msg}"),
         other => panic!("{:?}", other.err()),
     }
 }

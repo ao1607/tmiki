@@ -3,7 +3,7 @@
 //! file:layer`, `restore --in-place file:layer`). CLIP and MDP2 go through
 //! tmi-clip (stage 2c), PNG and JPEG through tmi-image with
 //! image_ops.py `encode_raster_like`'s metadata rules (issue #21): the
-//! bytes are what Python writes. An original tmi cannot read as a PNG or
+//! bytes are what Python writes. An original tmiki cannot read as a PNG or
 //! JPEG (it would be an opaque blob) keeps no metadata, in both.
 
 use crate::pix::{self, fwd, Px};
@@ -459,14 +459,14 @@ fn png_source_raster(data: &[u8]) -> std::result::Result<SourceInfo, Unsure> {
 
 /// `_pil_source_info` of a PNG: `Image.open`'s `info` before the image data
 /// (None when it cannot be opened). A palette image's `getpalette()` loads
-/// it: an original whose image data fails to decode is one tmi cannot read
+/// it: an original whose image data fails to decode is one tmiki cannot read
 /// (an opaque blob), so nothing of it is kept (None), as in image_ops.
 fn png_source_pillow(data: &[u8]) -> Result<Option<SourceInfo>> {
     let Ok(scan) = tmi_image::png_dec::scan(data) else { return Ok(None) };
     let i = &scan.info;
     let mode = i.mode.expect("scan checks the mode");
     if mode == "P" && tmi_image::png_dec::decode_png(data).is_err() {
-        return Ok(None); // tmi cannot read this original: no metadata to keep
+        return Ok(None); // tmiki cannot read this original: no metadata to keep
     }
     Ok(Some(SourceInfo {
         format: "PNG",
@@ -547,7 +547,7 @@ fn jpeg_source(data: &[u8]) -> Option<SourceInfo> {
 }
 
 /// image_ops `_source_info(original, jpeg=...)`: None where Python gets
-/// None (the original is not a PNG or JPEG tmi reads: another format, a
+/// None (the original is not a PNG or JPEG tmiki reads: another format, a
 /// malformed MPO, a palette PNG that does not load), and the write then keeps
 /// no metadata. There is no Pillow in this decision (PLUGINS.md P0e).
 fn source_info(original: &[u8], jpeg: bool) -> Result<Option<SourceInfo>> {
@@ -563,7 +563,7 @@ fn source_info(original: &[u8], jpeg: bool) -> Result<Option<SourceInfo>> {
     }
     if original.len() >= 3 && original[..3] == [0xFF, 0xD8, 0xFF] {
         if tmi_import::header::jpeg_open(original).is_ok_and(|h| h.malformed_mpo) {
-            return Ok(None); // not an image to tmi (an opaque blob): no metadata to keep
+            return Ok(None); // not an image to tmiki (an opaque blob): no metadata to keep
         }
         return Ok(jpeg_source(original));
     }
@@ -588,7 +588,7 @@ fn png_as_jpeg_source(data: &[u8]) -> Result<Option<SourceInfo>> {
     };
     let mode = info.mode.expect("scan checks the mode");
     if mode == "P" && (!loads || tmi_image::png_dec::decode_png(data).is_err()) {
-        return Ok(None); // tmi cannot read this original: no metadata to keep
+        return Ok(None); // tmiki cannot read this original: no metadata to keep
     }
     let last = |key: &str| info.info_log.iter().rev().find(|(k, _)| *k == key).map(|(_, v)| v.clone());
     let bad = || fwd("a text chunk value Python cannot write into a JPEG");

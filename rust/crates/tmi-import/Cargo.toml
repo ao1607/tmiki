@@ -1,6 +1,6 @@
 [package]
 name = "tmi-import"
-description = "tmi's import pipeline (tmi/importers.py): CLIP, MDP2 and PNG / JPEG into layer records, layer blobs, the composite and its thumbnail"
+description = "tmiki's import pipeline (tmi/importers.py): CLIP, MDP2 and PNG / JPEG into layer records, layer blobs, the composite and its thumbnail"
 version.workspace = true
 edition.workspace = true
 

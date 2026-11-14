@@ -1,11 +1,11 @@
-//! tmi's host for wasm format plugins (PLUGINS.md 3, 5, 6; stage P5).
+//! tmiki's host for wasm format plugins (PLUGINS.md 3, 5, 6; stage P5).
 //!
 //! A plugin is a WebAssembly component of the `tmi:format/format-reader`
 //! world (`tmi-format/wit/tmi-format.wit`). This crate runs it:
 //!
 //! - [`engine`]: the wasmtime configuration of PLUGINS.md 3.1, in one
 //!   function, and the epoch ticker. Nothing here starts until a plugin is
-//!   loaded: `tmi` commands that read no plugin never touch wasmtime.
+//!   loaded: `tmiki` commands that read no plugin never touch wasmtime.
 //! - [`wasi`]: the deterministic WASI of 3.2 (empty filesystem, environment
 //!   and stdin; clocks stopped at 0; ChaCha20 with a fixed seed; no sockets)
 //!   and the list of imports a component may have (anything else, such as

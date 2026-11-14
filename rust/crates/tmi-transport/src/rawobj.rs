@@ -200,7 +200,7 @@ pub const REFUSED_TREE: &str = "refusing tree ";
 
 /// A repository tree's entries name files the working tree will be written
 /// with; refuse the tree when one of the paths breaks `recpath`'s rule.
-/// Every tree is read (a forged one need not look like tmi's own JSON); a
+/// Every tree is read (a forged one need not look like tmiki's own JSON); a
 /// payload that is not JSON is left for the reader to refuse.
 fn check_tree_paths(oid: &str, payload: &[u8]) -> Result<(), String> {
     let Ok(tree) = tmi_store::json::loads_bytes(payload) else {

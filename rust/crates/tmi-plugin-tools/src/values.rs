@@ -1,5 +1,5 @@
 //! A reader's answers as values, for comparing and for `--dump`. The values
-//! are the RPC's (`tmi_plugin_host::devwire`: the inverses of what tmi reads
+//! are the RPC's (`tmi_plugin_host::devwire`: the inverses of what tmiki reads
 //! from a development plugin), so a wasm plugin's answers and a development
 //! plugin's are compared in the one form PLUGINS.md 7.1 gives them.
 

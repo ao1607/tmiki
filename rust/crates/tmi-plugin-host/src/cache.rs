@@ -2,15 +2,15 @@
 //!
 //! `<dir>/<key>/<component sha256>.cwasm`, where `<key>` is the SHA-256 of
 //! wasmtime's `precompile_compatibility_hash` (its version and compiler
-//! flags) and of [`crate::engine::fingerprint`] (the settings tmi chose).
+//! flags) and of [`crate::engine::fingerprint`] (the settings tmiki chose).
 //! A file is written to a temporary name and renamed into place, so a reader
 //! never sees half of one. A `.cwasm` is native code wasmtime runs as it is,
 //! so a file is used only when it is sealed: `<sha256>.cwasm.seal` holds
 //! HMAC-SHA256 (key: `plugin-cache.key`, 32 random bytes in the user's own
-//! `tmi` directory, never in the cache directory) of the key, the
+//! `tmiki` directory, never in the cache directory) of the key, the
 //! component's sha256 and the file's bytes. A cache directory somebody else
 //! can write (`TMI_PLUGIN_CACHE` at a shared place) can replace a file but
-//! not make tmi run it: the seal does not match, the component is compiled
+//! not make tmiki run it: the seal does not match, the component is compiled
 //! again and the file written over. The bytes that were sealed are the
 //! bytes that are loaded (read once, checked, deserialized from memory: no
 //! window between the check and the use). The default directory is the
@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use wasmtime::component::Component;
 use wasmtime::Engine;
 
-/// The cache directory tmi uses by default (`TMI_PLUGIN_CACHE` overrides it;
+/// The cache directory tmiki uses by default (`TMI_PLUGIN_CACHE` overrides it;
 /// an empty value turns the cache off).
 pub fn default_dir() -> Option<PathBuf> {
     if let Some(v) = std::env::var_os("TMI_PLUGIN_CACHE") {
@@ -102,7 +102,7 @@ fn seal_of(key: &[u8], dir_key: &str, sha256: &str, bytes: &[u8]) -> ring::hmac:
 }
 
 /// A `Hasher` that keeps every byte it is given (the compatibility hash is
-/// an `impl Hash`; tmi wants a stable digest of it, not a SipHash).
+/// an `impl Hash`; tmiki wants a stable digest of it, not a SipHash).
 struct Collect(Vec<u8>);
 
 impl Hasher for Collect {

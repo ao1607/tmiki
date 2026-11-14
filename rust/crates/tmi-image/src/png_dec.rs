@@ -30,8 +30,8 @@
 //! row boundary leaves the remaining rows 0; data after the last row is not
 //! read).
 //!
-//! What Pillow puts in `info` from text chunks under keys tmi reads (a tEXt
-//! named "dpi", ...) is not reproduced: tmi's header reading never did.
+//! What Pillow puts in `info` from text chunks under keys tmiki reads (a tEXt
+//! named "dpi", ...) is not reproduced: tmiki's header reading never did.
 
 use std::io::Cursor;
 
@@ -183,7 +183,7 @@ impl Chunk {
     }
 }
 
-/// The `info` entries and PngStream state tmi reads, as the handlers leave
+/// The `info` entries and PngStream state tmiki reads, as the handlers leave
 /// them.
 #[derive(Clone, Debug, Default)]
 pub struct PngInfo {

@@ -32,8 +32,8 @@ fn no_merge_writer_reason(source_format: &str) -> String {
         _ => None,
     };
     match name {
-        Some(n) => format!("{n} files cannot be merged automatically (tmi cannot write them back); take one side with --ours or --theirs"),
-        None => "this file cannot be merged automatically (tmi does not read it as a drawing); take one side with --ours or --theirs".into(),
+        Some(n) => format!("{n} files cannot be merged automatically (tmiki cannot write them back); take one side with --ours or --theirs"),
+        None => "this file cannot be merged automatically (tmiki does not read it as a drawing); take one side with --ours or --theirs".into(),
     }
 }
 const LOSSY_CONFLICT_REASON: &str =

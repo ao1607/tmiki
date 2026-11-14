@@ -1,6 +1,6 @@
 [package]
 name = "tmi-transport"
-description = "tmi's remotes (tmi/transport): local paths and tmihub over HTTPS; fetch, push, pull and clone"
+description = "tmiki's remotes (tmi/transport): local paths and tmihub over HTTPS; fetch, push, pull and clone"
 version.workspace = true
 edition.workspace = true
 

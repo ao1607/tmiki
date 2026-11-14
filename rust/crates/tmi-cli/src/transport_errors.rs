@@ -1,4 +1,4 @@
-//! An HTTPS remote's failures in tmi's words (issue #29), as
+//! An HTTPS remote's failures in tmiki's words (issue #29), as
 //! tmi/transport/https.py words them: a reply that is not the JSON tmihub
 //! sends, a download that is not a readable zip archive, no answer at all,
 //! a reply that stopped coming (TMIHUB_TIMEOUT) or broke off.
@@ -13,11 +13,11 @@
 use tmi_repo::RepoError;
 
 /// https.py `UNEXPECTED_REPLY`.
-pub const UNEXPECTED_REPLY: &str = "tmihub sent a reply tmi cannot read (not the JSON it expects); the server may have a problem, \
+pub const UNEXPECTED_REPLY: &str = "tmihub sent a reply tmiki cannot read (not the JSON it expects); the server may have a problem, \
      or the remote URL may not point at a tmihub repository";
 
 /// https.py `NO_ANSWER`.
-pub const NO_ANSWER: &str = "tmihub stopped answering (TMIHUB_TIMEOUT sets how many seconds tmi waits, 300 by default); \
+pub const NO_ANSWER: &str = "tmihub stopped answering (TMIHUB_TIMEOUT sets how many seconds tmiki waits, 300 by default); \
      check your network connection and run the command again";
 
 /// https.py `BROKEN_DOWNLOAD`.
@@ -104,7 +104,7 @@ fn is_zip_error(msg: &str) -> bool {
         || (msg.starts_with("File '") && msg.ends_with(" is encrypted, password required for extraction"))
 }
 
-/// `err` in tmi's words when the remote at `url` is a tmihub one.
+/// `err` in tmiki's words when the remote at `url` is a tmihub one.
 pub fn reword(err: RepoError, url: Option<&str>) -> RepoError {
     let Some(url) = url.filter(|u| is_http(u)) else { return err };
     let RepoError::Runtime(msg) = &err else { return err };

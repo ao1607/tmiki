@@ -89,7 +89,7 @@ pub fn pooling_limit_message(error: &str) -> Option<String> {
         .into_iter()
         .find_map(|(wasmtime_says, name)| has(wasmtime_says).map(|(n, max)| (n, max, name)))?;
     Some(format!(
-        "it has {n} {what} and a plugin may have {max}: tmi runs format plugins written in Rust \
+        "it has {n} {what} and a plugin may have {max}: tmiki runs format plugins written in Rust \
          ('tmiki plugin new' writes one on tmi-plugin-sdk); a component made from another language is larger than that"
     ))
 }
@@ -498,7 +498,7 @@ impl WasmBackend {
 }
 
 /// `TMI_PLUGIN_LOG=1`: a call's `log.emit` lines, stdout and stderr, on
-/// tmi's stderr (PLUGINS.md 2.1: never part of a record).
+/// tmiki's stderr (PLUGINS.md 2.1: never part of a record).
 fn show_log(id: &str, s: &HostState) {
     if std::env::var_os("TMI_PLUGIN_LOG").is_none_or(|v| v.is_empty() || v == "0") {
         return;

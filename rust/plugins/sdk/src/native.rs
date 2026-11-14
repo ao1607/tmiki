@@ -1,5 +1,5 @@
 //! A development plugin's main loop (`tmiki plugin dev`; the wire is crate
-//! `tmi-plugin-dev`'s): tmi's calls in from stdin, the answers out on
+//! `tmi-plugin-dev`'s): tmiki's calls in from stdin, the answers out on
 //! stdout, and the host functions the plugin calls in between.
 
 use std::io::{BufReader, BufWriter, Stdin, Stdout, Write};
@@ -19,12 +19,12 @@ struct Pipe {
 
 static PIPE: Mutex<Option<Pipe>> = Mutex::new(None);
 
-/// A host function that trapped (tmi's message): unwinds the call.
+/// A host function that trapped (tmiki's message): unwinds the call.
 struct HostTrap(String);
 
 fn send(pipe: &mut Pipe, m: Message) {
     if write_frame(&mut pipe.output, &m.into_value()).is_err() {
-        // tmi is gone
+        // tmiki is gone
         std::process::exit(0);
     }
 }
@@ -33,10 +33,10 @@ fn receive(pipe: &mut Pipe) -> Message {
     match read_frame(&mut pipe.input) {
         Ok(Some(v)) => match Message::from_value(v) {
             Ok(m) => m,
-            Err(e) => fatal(&format!("a message from tmi that this SDK does not read: {e}")),
+            Err(e) => fatal(&format!("a message from tmiki that this SDK does not read: {e}")),
         },
         Ok(None) => std::process::exit(0),
-        Err(e) => fatal(&format!("tmi sent {e}")),
+        Err(e) => fatal(&format!("tmiki sent {e}")),
     }
 }
 
@@ -50,7 +50,7 @@ pub(crate) fn import(func: &str, args: Vec<Value>) -> Value {
     let answer = {
         let mut guard = PIPE.lock().unwrap_or_else(|e| e.into_inner());
         let Some(pipe) = guard.as_mut() else {
-            panic!("{func}: the host is only there while tmi calls the plugin (tmi_plugin_sdk::dev_main)");
+            panic!("{func}: the host is only there while tmiki calls the plugin (tmi_plugin_sdk::dev_main)");
         };
         send(pipe, Message::Import { func: func.to_string(), args });
         receive(pipe)
@@ -58,13 +58,13 @@ pub(crate) fn import(func: &str, args: Vec<Value>) -> Value {
     match answer {
         Message::Return(v) => v,
         Message::Trap(m) => panic::panic_any(HostTrap(m)),
-        Message::Call { func: f, .. } | Message::Import { func: f, .. } => fatal(&format!("tmi sent {f} where it should answer {func}")),
+        Message::Call { func: f, .. } | Message::Import { func: f, .. } => fatal(&format!("tmiki sent {f} where it should answer {func}")),
     }
 }
 
-/// tmi answered with something that does not fit the WIT.
+/// tmiki answered with something that does not fit the WIT.
 pub(crate) fn misfit(func: &str, e: ValueError) -> ! {
-    panic!("tmi's answer to {func} does not fit the WIT: {e}")
+    panic!("tmiki's answer to {func} does not fit the WIT: {e}")
 }
 
 fn arg<'a>(args: &'a [Value], i: usize, func: &str) -> Result<&'a Value, String> {
@@ -83,7 +83,7 @@ fn read_result<T>(r: Result<T, ReadError>, ok: impl FnOnce(&T) -> Value) -> Valu
     }
 }
 
-/// One of tmi's calls. `Err`: a trap (an argument that does not fit).
+/// One of tmiki's calls. `Err`: a trap (an argument that does not fit).
 fn dispatch<P: Plugin>(func: &str, args: &[Value]) -> Result<Value, String> {
     let a = |i| arg(args, i, func);
     let e = |e: ValueError| format!("{func}: {e}");
@@ -91,7 +91,7 @@ fn dispatch<P: Plugin>(func: &str, args: &[Value]) -> Result<Value, String> {
         "hello" => {
             let v = a(0)?.u64("protocol").map_err(e)?;
             if v != PROTOCOL {
-                return Err(format!("tmi speaks protocol {v}; this SDK speaks {PROTOCOL}"));
+                return Err(format!("tmiki speaks protocol {v}; this SDK speaks {PROTOCOL}"));
             }
             Value::record([("protocol", Value::Uint(PROTOCOL)), ("abi", Value::text(ABI)), ("writer", Value::Bool(true))])
         }
@@ -146,11 +146,11 @@ fn panic_text(p: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-/// Runs plugin `P` as a development plugin: answers tmi's calls on stdin
+/// Runs plugin `P` as a development plugin: answers tmiki's calls on stdin
 /// and stdout until stdin ends, then exits. Call it from `main` of a
 /// native build (`tmiki plugin dev <that program> -- add a.ora`).
 pub fn dev_main<P: Plugin>() -> ! {
-    // a host trap is tmi's own message: not printed again as a panic
+    // a host trap is tmiki's own message: not printed again as a panic
     let default_hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         if info.payload().downcast_ref::<HostTrap>().is_none() {
@@ -169,8 +169,8 @@ pub fn dev_main<P: Plugin>() -> ! {
                 Ok(Err(m)) => Message::Trap(m),
                 Err(p) => Message::Trap(panic_text(p.as_ref())),
             },
-            Message::Import { func, .. } => fatal(&format!("tmi sent an import ({func}); it sends calls")),
-            Message::Return(_) | Message::Trap(_) => fatal("tmi sent an answer where it should call"),
+            Message::Import { func, .. } => fatal(&format!("tmiki sent an import ({func}); it sends calls")),
+            Message::Return(_) | Message::Trap(_) => fatal("tmiki sent an answer where it should call"),
         };
         let mut guard = PIPE.lock().unwrap_or_else(|e| e.into_inner());
         let pipe = guard.as_mut().expect("set above");

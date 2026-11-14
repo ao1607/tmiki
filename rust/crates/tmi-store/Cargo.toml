@@ -1,6 +1,6 @@
 [package]
 name = "tmi-store"
-description = "tmi's object store: SHA-256 ids, zlib objects, chunked blobs, Python-exact JSON"
+description = "tmiki's object store: SHA-256 ids, zlib objects, chunked blobs, Python-exact JSON"
 version.workspace = true
 edition.workspace = true
 

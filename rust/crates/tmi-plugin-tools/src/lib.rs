@@ -1,10 +1,10 @@
-//! tmi's tools for plugin authors (PLUGINS.md 7.1, P8): what `tmiki plugin
+//! tmiki's tools for plugin authors (PLUGINS.md 7.1, P8): what `tmiki plugin
 //! new | build | test | doctor | install` do, outside any repository.
 //!
 //! - [`new`]: a plugin's directory from the Rust template (on
-//!   tmi-plugin-sdk), with tmi's WIT, PLUGIN_SPEC.md and a sample file the
+//!   tmi-plugin-sdk), with tmiki's WIT, PLUGIN_SPEC.md and a sample file the
 //!   template reads. Plugins are written in Rust only ([`check_lang`]).
-//! - [`build`]: runs cargo (tmi installs and downloads
+//! - [`build`]: runs cargo (tmiki installs and downloads
 //!   nothing), then checks the component with the host (its imports against
 //!   PLUGINS.md 3.2's list, the link, `info`), drops the custom sections a
 //!   component does not need and says its SHA-256.
@@ -29,7 +29,7 @@ pub mod strip;
 pub mod template;
 pub mod values;
 
-/// The interface tmi speaks, as `new` writes it into `wit/` (the version
+/// The interface tmiki speaks, as `new` writes it into `wit/` (the version
 /// is the one in its `package` line).
 pub const WIT: &str = include_str!("../../tmi-format/wit/tmi-format.wit");
 
@@ -50,7 +50,7 @@ pub fn valid_id(id: &str) -> bool {
     tmi_plugin_host::is_plugin_id(id)
 }
 
-/// `--lang` of `plugin new` and `lang` of `tmi-plugin.toml`: tmi's format
+/// `--lang` of `plugin new` and `lang` of `tmi-plugin.toml`: tmiki's format
 /// plugins are written in Rust (PLUGINS.md Q14, 2026-10-26: Rust's
 /// components start in microseconds and weigh a few hundred KB; Python's
 /// took milliseconds and megabytes), so `rust` is the one language; any
@@ -60,7 +60,7 @@ pub fn check_lang(lang: &str) -> Result<(), String> {
         return Ok(());
     }
     Err(format!(
-        "tmi format plugins are written in Rust: there is no {lang} template, and 'tmiki plugin build' builds Rust plugins only \
+        "tmiki format plugins are written in Rust: there is no {lang} template, and 'tmiki plugin build' builds Rust plugins only \
          ('tmiki plugin new <id>' writes one; PLUGIN_SPEC.md is written for an AI to write it from)"
     ))
 }

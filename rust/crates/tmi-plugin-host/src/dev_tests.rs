@@ -1,7 +1,7 @@
 //! `tmiki plugin dev` (P8): the ORA plugin as a development plugin (`ora-dev`,
 //! the same code on tmi-plugin-sdk) gives the records and writes the bytes
 //! its component gives, and a development plugin that misbehaves ends in a
-//! defined error without tmi panicking.
+//! defined error without tmiki panicking.
 
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -51,7 +51,7 @@ fn the_development_plugin_makes_the_records_its_component_makes() {
     assert_eq!(import_both(&wasm, "many.ora", &data).unwrap(), import_both(dev, "many.ora", &data).unwrap());
 }
 
-/// The values `tmiki plugin test` compares in are what tmi reads back from a
+/// The values `tmiki plugin test` compares in are what tmiki reads back from a
 /// development plugin: `devwire`'s `*_value` and its decoders are inverses.
 #[test]
 fn the_values_test_compares_are_the_rpc_values() {
@@ -172,7 +172,7 @@ fn the_shared_fixture_reads_as_the_sdk_wrote_it() {
     assert_eq!(s.format, "Kitchen sink");
     assert_eq!(s.canvas, Canvas { width: 256, height: 129, dpi: Some(350.5), profile: ColorProfile::Embedded(Bytes::Span(Span { offset: 1, len: 2 })) });
     assert_eq!(s.layers.len(), 30);
-    // every blend mode, in the WIT's order, which is tmi's
+    // every blend mode, in the WIT's order, which is tmiki's
     let blends: Vec<&str> = s.layers.iter().map(|l| l.blend.name()).collect();
     assert_eq!(blends[..4], ["normal", "pass_through", "multiply", "screen"]);
     assert_eq!(blends[29], "other");

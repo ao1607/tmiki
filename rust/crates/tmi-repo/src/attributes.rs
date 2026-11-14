@@ -15,7 +15,7 @@
 //! normcase that differs between systems would give different records).
 //! For each attribute the last matching line wins. `format`: `plugin:<id>`
 //! (the component `.tmiplugins/<id>.wasm`), `binary` (an opaque blob) or
-//! `builtin` (tmi's own rules: `.clip`, `.mdp`, image signatures, else
+//! `builtin` (tmiki's own rules: `.clip`, `.mdp`, image signatures, else
 //! opaque; the default). `on-error`: `refuse` (the default: a file the
 //! plugin cannot read stops `add`) or `binary`. Unknown attributes are
 //! ignored. `.tmiattributes` itself and `.tmiplugins/` always follow the
@@ -34,7 +34,7 @@ pub enum Format {
     Builtin,
     Binary,
     Plugin(String),
-    /// A value tmi does not know (the line and the text): a file it maps
+    /// A value tmiki does not know (the line and the text): a file it maps
     /// cannot be imported.
     Invalid(String),
 }

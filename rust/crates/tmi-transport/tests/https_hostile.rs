@@ -1,7 +1,7 @@
 //! A hostile tmihub (tests/test_https_hostile.py has the Python twins):
 //! it redirects to another host, wants the token over plain http, sends a
 //! reply, an error body or a download that never ends, or sends one byte at
-//! a time. tmi must keep its token, its memory and its disk, and give up.
+//! a time. tmiki must keep its token, its memory and its disk, and give up.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -198,7 +198,7 @@ fn a_redirect_is_not_followed_and_the_token_stays_home() {
 
 #[test]
 fn the_token_is_not_sent_over_plain_http_to_another_machine() {
-    // 127.0.0.2 is this machine, but not the loopback names tmi trusts
+    // 127.0.0.2 is this machine, but not the loopback names tmiki trusts
     let hub = serve("127.0.0.2", |s, _, _| json_reply(s, "200 OK", r#"{"refs":{}}"#));
     let bound = format!("127.0.0.2:{}", hub.port);
     let err = with_env(&[("TMIHUB_TOKEN", "s3cret"), ("TMIHUB_HOST", &bound)], None, || refs_err(&hub.url("127.0.0.2")));
@@ -324,7 +324,7 @@ fn a_reply_trickled_one_byte_at_a_time_is_given_up() {
         let err = with_env(&[("TMIHUB_PACE_WINDOW", "1"), ("TMIHUB_PACE_MIN_BYTES", "1024")], None, || refs_err(&url));
         let _ = tx.send((err, started.elapsed()));
     });
-    let (err, took) = rx.recv_timeout(Duration::from_secs(30)).expect("tmi is still waiting for a trickle");
+    let (err, took) = rx.recv_timeout(Duration::from_secs(30)).expect("tmiki is still waiting for a trickle");
     assert!(err.contains("sending data too slowly"), "{err}");
     assert!(took < Duration::from_secs(15), "{took:?}");
 }

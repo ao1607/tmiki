@@ -1,7 +1,7 @@
-//! The host on a native target: each call goes to tmi over the RPC of
+//! The host on a native target: each call goes to tmiki over the RPC of
 //! `tmiki plugin dev` ([`crate::native::import`]), answered before it
 //! returns. A host function that traps there unwinds the plugin's call
-//! (the call is over; tmi already knows why).
+//! (the call is over; tmiki already knows why).
 
 use std::marker::PhantomData;
 

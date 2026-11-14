@@ -130,7 +130,7 @@ pub fn split_pathspec(spec: &str) -> Result<(String, Option<String>)> {
 }
 
 /// [`split_pathspec`], and also `file:layer` where `.tmiattributes` maps
-/// the file to a format plugin (PLUGINS.md P7): the regex knows only tmi's
+/// the file to a format plugin (PLUGINS.md P7): the regex knows only tmiki's
 /// own layered extensions, so `art.ora:影` would otherwise be a file named
 /// so (issue #47). As in the regex, the last `:` that ends such a file name
 /// wins. Python never sees these specs: it does not run plugins.

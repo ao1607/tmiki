@@ -1,4 +1,4 @@
-//! A hostile remote writes trees tmi's own commands never write: a path that
+//! A hostile remote writes trees tmiki's own commands never write: a path that
 //! leaves the working tree (`../x`, `a/../../x`, a drive, a UNC path), one
 //! that lands in `.tmi` (`.tmi/hooks/post-commit.bat`, `.TMI`, `TMI~1`), a
 //! Windows device name, a `:`, a trailing dot. Every one must be refused when
@@ -121,7 +121,7 @@ fn clone_refuses_every_attack() {
             .unwrap_or_else(|| panic!("clone accepted {attack:?}"))
             .to_string();
         assert!(err.contains("invalid path"), "{attack:?}: {err}");
-        // nothing outside the clone, nothing but tmi's own files inside
+        // nothing outside the clone, nothing but tmiki's own files inside
         assert!(files_outside_tmi(&case.join("work")).is_empty(), "{attack:?}: {:?}", files_outside_tmi(&case.join("work")));
         assert!(!case.join("escape.txt").exists() && !case.join("escape2.txt").exists());
         assert!(hooks_empty(&dst), "{attack:?}: a hook was planted");

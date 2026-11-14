@@ -4,7 +4,7 @@
 //! is `tmi_plugin_dev`'s).
 //!
 //! Without `--`: starts it, reads its `info`, says what it is and whether
-//! `.tmiattributes` maps files to it. With `-- <command>`: runs `tmi
+//! `.tmiattributes` maps files to it. With `-- <command>`: runs `tmiki
 //! <command>` with `TMI_PLUGIN_DEV` naming the program, so that command
 //! reads (and writes back) the files `.tmiattributes` maps to the plugin's
 //! id with it instead of `.tmiplugins/<id>.wasm`. The records it makes carry
@@ -12,7 +12,7 @@
 //!
 //! The front door hands `plugin dev <program> ...` here before argparse's
 //! table (`main.rs`): the program's own options (`python -m ...`) are not
-//! tmi's. Python has the parser for `-h` only and refuses to run it.
+//! tmiki's. Python has the parser for `-h` only and refuses to run it.
 
 use crate::out::Out;
 use crate::CmdResult;
@@ -31,14 +31,14 @@ pub fn dev(argv: &[String], out: &mut Out) -> CmdResult {
     let cmd = DevCommand::new(program, args);
     match command {
         None => describe(cmd, out),
-        Some([]) => Err(RepoError::runtime("plugin dev: nothing after --; name a tmi command to run with the plugin, e.g. -- add a.ora")),
+        Some([]) => Err(RepoError::runtime("plugin dev: nothing after --; name a tmiki command to run with the plugin, e.g. -- add a.ora")),
         Some(rest) => run(&cmd, rest),
     }
 }
 
-/// `tmi <rest>` with `TMI_PLUGIN_DEV` naming `cmd`; its exit code.
+/// `tmiki <rest>` with `TMI_PLUGIN_DEV` naming `cmd`; its exit code.
 fn run(cmd: &DevCommand, rest: &[String]) -> CmdResult {
-    let exe = std::env::current_exe().map_err(|e| RepoError::runtime(format!("plugin dev: the tmi executable: {e}")))?;
+    let exe = std::env::current_exe().map_err(|e| RepoError::runtime(format!("plugin dev: the tmiki executable: {e}")))?;
     let status = std::process::Command::new(exe)
         .args(rest)
         .env(formats::DEV_ENV, tmi_plugin_host::dev::env_value(std::slice::from_ref(cmd)))

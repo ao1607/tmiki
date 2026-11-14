@@ -385,7 +385,7 @@ impl Repo {
     /// `entries_for_checkout(commit)`: the entries of `commit` that are
     /// about to be written to the working tree, each path checked against
     /// `recpath`'s rule first (an `Err` before any ref moves or file is
-    /// touched: a tree can hold what tmi's own commands never record).
+    /// touched: a tree can hold what tmiki's own commands never record).
     pub fn entries_for_checkout(&self, commit: &str) -> Result<Entries> {
         let entries = self.entries_for_commit(Some(commit))?;
         for rel in entries.keys() {

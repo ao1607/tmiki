@@ -1,6 +1,6 @@
-//! Which files tmi stores as images (PLUGINS.md P0e): a file is an image
-//! exactly when tmi's own decoders read it, a recognised signature and a full
-//! decode with no decline; everything else (a format tmi has no decoder for,
+//! Which files tmiki stores as images (PLUGINS.md P0e): a file is an image
+//! exactly when tmiki's own decoders read it, a recognised signature and a full
+//! decode with no decline; everything else (a format tmiki has no decoder for,
 //! a variant a decoder declines, a file Pillow would refuse or warn about) is
 //! an opaque blob. Nothing here asks Pillow, so the verdict does not depend
 //! on the installed Pillow version, or on Pillow being installed.
@@ -12,7 +12,7 @@ use crate::header;
 use crate::{decode_rgba, decode_rgba_any, DecodeError, Format};
 use tmi_pillow::image::Image;
 
-/// A file tmi reads as an image: its RGBA pixels and the metadata the import
+/// A file tmiki reads as an image: its RGBA pixels and the metadata the import
 /// records (`canvas_meta`).
 #[derive(Debug)]
 pub struct Accepted {
@@ -28,7 +28,7 @@ pub struct Accepted {
 /// Why a file is not an image.
 #[derive(Debug)]
 pub enum Reject {
-    /// tmi does not read it: stored as an opaque blob. The text says why
+    /// tmiki does not read it: stored as an opaque blob. The text says why
     /// (for reports only).
     Opaque(String),
     /// A readable image with more pixels than the limit: an error (the
@@ -37,7 +37,7 @@ pub enum Reject {
 }
 
 /// The verdict on `data`. `max_pixels` is the raster pixel limit (None: no
-/// limit); an image over it is [`Reject::TooLarge`] once tmi has recognised
+/// limit); an image over it is [`Reject::TooLarge`] once tmiki has recognised
 /// it, before any pixels are allocated.
 pub fn open_for_import(data: &[u8], max_pixels: Option<u64>) -> Result<Accepted, Reject> {
     match header::header(data) {
@@ -57,7 +57,7 @@ pub fn open_for_import(data: &[u8], max_pixels: Option<u64>) -> Result<Accepted,
         Ok(None) => match decode_rgba_any(data, max_pixels.filter(|&m| m != 0)) {
             Ok(o) => Ok(Accepted { image: o.image, format: o.format, dpi: o.info.canvas_dpi(), icc: o.info.icc_profile.is_some() }),
             Err(DecodeError::TooLarge(w, h)) => Err(Reject::TooLarge(w, h)),
-            Err(DecodeError::UnknownFormat) => Err(Reject::Opaque("not a format tmi reads".into())),
+            Err(DecodeError::UnknownFormat) => Err(Reject::Opaque("not a format tmiki reads".into())),
             Err(e) => Err(Reject::Opaque(format!("tmi_image: {e:?}"))),
         },
     }

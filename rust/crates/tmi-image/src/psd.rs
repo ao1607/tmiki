@@ -1,5 +1,5 @@
 //! PSD as Pillow 12.3.0 opens and loads it (PsdImagePlugin): the merged
-//! composite of the image data section, which is what tmi read through
+//! composite of the image data section, which is what tmiki read through
 //! Pillow before. Layers are not read (a future plugin's).
 //!
 //! - Version 1 files; the colour modes and depths of Pillow's `MODES`:

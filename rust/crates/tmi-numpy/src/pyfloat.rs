@@ -1,4 +1,4 @@
-//! CPython float operations whose results tmi depends on.
+//! CPython float operations whose results tmiki depends on.
 
 /// `round(x)` of a Python float (ties to even), as an integer.
 #[inline]

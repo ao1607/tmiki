@@ -66,7 +66,7 @@ pub fn py_repr_ascii(s: &str) -> Result<String> {
 /// the characters Windows file names cannot hold), or None. Same order and
 /// texts as Python (issue #41).
 ///
-/// `reading`: only what could never be a file under refs/ (what tmi has
+/// `reading`: only what could never be a file under refs/ (what tmiki has
 /// always refused): a revision lookup tries `HEAD~1` as a ref name first.
 pub fn ref_name_problem(name: &str, reading: bool) -> Option<String> {
     if name.is_empty() {
@@ -179,7 +179,7 @@ impl Repo {
             }
             match cur.parent() {
                 Some(parent) if parent != cur => cur = parent.to_path_buf(),
-                _ => return Err(RepoError::runtime("not a tmi repository")),
+                _ => return Err(RepoError::runtime("not a tmiki repository")),
             }
         }
     }

@@ -1,5 +1,5 @@
 //! `tmiki plugin build [dir]` (PLUGINS.md 7.1): cargo makes the component,
-//! then tmi checks and finishes it. Plugins are written in Rust (Q14).
+//! then tmiki checks and finishes it. Plugins are written in Rust (Q14).
 //!
 //! 1. `cargo build --release --target wasm32-wasip2` (its own
 //!    `--target-dir <dir>/target`).
@@ -13,7 +13,7 @@
 //!    and SHA-256.
 //! 5. With a `[dev] command`, what it runs is made too ([`build_dev`]).
 //!
-//! tmi runs the tools that are installed and installs or downloads nothing
+//! tmiki runs the tools that are installed and installs or downloads nothing
 //! (`tmiki plugin doctor` says what is missing). component-init (an
 //! initialised snapshot) is not done: it made the Rust ORA's instances
 //! slower (6.2, P9).
@@ -34,7 +34,7 @@ pub struct Built {
 }
 
 fn run_tool(mut cmd: Command, what: &str) -> Result<(), String> {
-    // the tool's own output goes to stderr (tmi's stdout is its result)
+    // the tool's own output goes to stderr (tmiki's stdout is its result)
     cmd.stdout(Stdio::from(std::io::stderr())).stderr(Stdio::inherit());
     let status = cmd.status().map_err(|e| format!("running {what}: {e}"))?;
     if !status.success() {
@@ -114,7 +114,7 @@ pub fn consent_digest(m: &Manifest) -> Result<Vec<u8>, String> {
             let e = e.map_err(|e| format!("{}: {e}", d.display()))?;
             let path = e.path();
             let rel = path.strip_prefix(&m.dir).unwrap_or(&path).to_string_lossy().replace('\\', "/");
-            // what tmi writes there itself: the component, `test --update`'s expectations
+            // what tmiki writes there itself: the component, `test --update`'s expectations
             let expectation = path.starts_with(&m.corpus) && rel.ends_with(crate::check::EXPECT_SUFFIX);
             if rel == "target" || rel == ".git" || path == m.output || expectation {
                 continue;

@@ -1,4 +1,4 @@
-//! PNG encode of the modes tmi writes back into a user's PNG (issue #21):
+//! PNG encode of the modes tmiki writes back into a user's PNG (issue #21):
 //! "1", "L", "LA", "P", "RGB" and "RGBA", with the chunks
 //! `PngImagePlugin._save` (Pillow 12.3) would write and in its order:
 //!

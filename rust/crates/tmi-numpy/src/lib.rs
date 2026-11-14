@@ -1,4 +1,4 @@
-//! numpy 2.5's and CPython's float semantics where tmi's renderer depends on
+//! numpy 2.5's and CPython's float semantics where tmiki's renderer depends on
 //! them bit for bit (rounding, interp, linspace, float `%`, `math.hypot`,
 //! pairwise sums).
 //!

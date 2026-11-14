@@ -75,7 +75,7 @@ impl FormatReader for RasterReader {
         &self.info
     }
 
-    /// `Yes` for a signature tmi's decoders know; `Maybe` for anything else,
+    /// `Yes` for a signature tmiki's decoders know; `Maybe` for anything else,
     /// since the verdict is the decoders' (the fallback of the registry).
     fn probe(&self, _name: &str, head: &[u8], _size: u64) -> Confidence {
         if is_png_or_jpeg(head) || sniff_any(head).is_some() {

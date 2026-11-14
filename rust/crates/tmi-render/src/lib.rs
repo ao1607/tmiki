@@ -1,4 +1,4 @@
-//! tmi's layer compositor: blend modes, op runs and regrade kernels, and the
+//! tmiki's layer compositor: blend modes, op runs and regrade kernels, and the
 //! CLIP renderer built on them (`clip`).
 
 pub mod adjust;

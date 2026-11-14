@@ -1,4 +1,4 @@
-//! tmi's repository (tmi/repo.py and its helpers): refs and HEAD,
+//! tmiki's repository (tmi/repo.py and its helpers): refs and HEAD,
 //! revisions, commits and trees, the index, the stat cache, config, ignore
 //! patterns, the reflog and hooks, and the writes that need no format
 //! import (RUST_MIGRATION.md 3a, 3b-1).

@@ -131,7 +131,7 @@ fn cwasm_of(dir: &std::path::Path, h: &crate::PluginHost, sha: &str) -> std::pat
     dir.join(crate::cache::key(h.engine(), &crate::engine::fingerprint(h.settings()))).join(format!("{sha}.cwasm"))
 }
 
-/// A `.cwasm` is native code: one that is not the one tmi sealed is never
+/// A `.cwasm` is native code: one that is not the one tmiki sealed is never
 /// loaded, whoever wrote it and however valid it is.
 #[test]
 fn a_cached_file_that_is_not_the_sealed_one_is_never_loaded() {
@@ -163,7 +163,7 @@ fn a_cached_file_that_is_not_the_sealed_one_is_never_loaded() {
     std::fs::write(seal(&fa), s).unwrap();
     assert!(matches!(h.load(&ora).unwrap().cache, Outcome::Replaced(_)), "forged seal");
 
-    // 4. no seal at all (a file an older tmi, or an attacker, left)
+    // 4. no seal at all (a file an older tmiki, or an attacker, left)
     std::fs::remove_file(seal(&fa)).unwrap();
     assert!(matches!(h.load(&ora).unwrap().cache, Outcome::Replaced(ref m) if m.contains("no seal")));
 

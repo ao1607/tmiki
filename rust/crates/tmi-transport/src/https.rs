@@ -34,7 +34,7 @@ pub const BATCH_MAX_BYTES: i128 = 64 * 1024 * 1024;
 /// progress (`urlopen(timeout=)`, the socket timeout).
 pub const TIMEOUT: i128 = 300;
 
-/// The most JSON (refs, object lists, `head`) tmi reads from one reply, and
+/// The most JSON (refs, object lists, `head`) tmiki reads from one reply, and
 /// the most of an error reply it keeps (env `TMIHUB_MAX_REPLY_BYTES`).
 pub const MAX_REPLY_BYTES: i128 = 64 * 1024 * 1024;
 const MAX_ERROR_BYTES: u64 = 64 * 1024;
@@ -115,20 +115,20 @@ fn plain_http_token(netloc: &str) -> String {
 
 /// https.py `too_big_reply`.
 fn too_big_reply(limit: u64) -> String {
-    format!("tmihub sent a reply larger than {limit} bytes; tmi will not read it (TMIHUB_MAX_REPLY_BYTES raises the limit)")
+    format!("tmihub sent a reply larger than {limit} bytes; tmiki will not read it (TMIHUB_MAX_REPLY_BYTES raises the limit)")
 }
 
 /// https.py `too_big_download`.
 fn too_big_download(limit: u64) -> String {
     format!(
-        "tmihub sent a download larger than {limit} bytes; tmi stopped receiving it (TMIHUB_MAX_DOWNLOAD_BYTES raises the limit)"
+        "tmihub sent a download larger than {limit} bytes; tmiki stopped receiving it (TMIHUB_MAX_DOWNLOAD_BYTES raises the limit)"
     )
 }
 
 /// https.py `too_slow`.
 fn too_slow_text(min_bytes: u64, window: Duration) -> String {
     format!(
-        "tmihub is sending data too slowly (under {min_bytes} bytes in {} seconds); tmi gave up \
+        "tmihub is sending data too slowly (under {min_bytes} bytes in {} seconds); tmiki gave up \
          (TMIHUB_PACE_WINDOW and TMIHUB_PACE_MIN_BYTES set the limit); run the command again",
         window.as_secs()
     )
@@ -139,9 +139,9 @@ fn too_slow_text(min_bytes: u64, window: Duration) -> String {
 fn redirect_text(code: u16, location: Option<&str>) -> String {
     let shown: String = location.unwrap_or("").chars().filter(|c| (' '..='~').contains(c)).take(200).collect();
     if shown.is_empty() {
-        format!("tmihub answered with a redirect ({code}); tmi does not follow redirects (check the remote URL)")
+        format!("tmihub answered with a redirect ({code}); tmiki does not follow redirects (check the remote URL)")
     } else {
-        format!("tmihub answered with a redirect ({code}) to {shown}; tmi does not follow redirects (check the remote URL)")
+        format!("tmihub answered with a redirect ({code}) to {shown}; tmiki does not follow redirects (check the remote URL)")
     }
 }
 

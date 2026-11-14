@@ -1,5 +1,5 @@
 //! Hand-made OpenRaster files for the tests and the measurements (no file
-//! is downloaded): a small zip writer, PNGs from tmi's own encoder, and a
+//! is downloaded): a small zip writer, PNGs from tmiki's own encoder, and a
 //! few documents that use what the ORA reader reads.
 
 use tmi_pillow::image::{Image, Mode};

@@ -1,4 +1,4 @@
-//! tmi's object store (tmi/objects.py, tmi/chunking.py): SHA-256 object
+//! tmiki's object store (tmi/objects.py, tmi/chunking.py): SHA-256 object
 //! ids, zlib object files with Python's level heuristic and bytes, chunked
 //! large blobs, and JSON exactly as CPython's `json` writes it.
 

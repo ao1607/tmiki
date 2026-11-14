@@ -22,7 +22,7 @@ fn init(dir: &Path) {
     std::fs::write(repo.join("index"), "{\n  \"entries\": {},\n  \"version\": 1\n}\n").unwrap();
 }
 
-/// Runs `tmi <args>` in `dir` and returns (exit code, stdout, stderr);
+/// Runs `tmiki <args>` in `dir` and returns (exit code, stdout, stderr);
 /// fails the test if it does not finish within TIMEOUT.
 fn tmi(dir: &Path, python: &Path, threads: usize, args: &[&str]) -> (i32, String, String) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_tmiki"))
@@ -44,7 +44,7 @@ fn tmi(dir: &Path, python: &Path, threads: usize, args: &[&str]) -> (i32, String
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("start tmi");
+        .expect("start tmiki");
     let start = Instant::now();
     loop {
         if child.try_wait().unwrap().is_some() {
@@ -53,7 +53,7 @@ fn tmi(dir: &Path, python: &Path, threads: usize, args: &[&str]) -> (i32, String
         if start.elapsed() > TIMEOUT {
             let _ = child.kill();
             let _ = child.wait();
-            panic!("tmi {} hung on a {threads}-thread pool", args.join(" "));
+            panic!("tmiki {} hung on a {threads}-thread pool", args.join(" "));
         }
         std::thread::sleep(Duration::from_millis(20));
     }

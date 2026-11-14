@@ -170,7 +170,7 @@ pub fn run(
     cmd.env_clear().envs(env);
     before();
     crate::fsio::mark_mutated(); // a hook may change anything
-    // The hook may run tmi itself (`tmiki add` in a pre-commit hook): give up
+    // The hook may run tmiki itself (`tmiki add` in a pre-commit hook): give up
     // index.lock while it runs and take it back after (issue #35).
     let held = crate::lockfile::suspend();
     let ran = cmd.status();

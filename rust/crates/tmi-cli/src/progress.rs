@@ -1,6 +1,6 @@
 //! cli.py `Progress`: phase reporting on stderr for long operations.
 //!
-//! On a terminal (stderr and stdout both), one spinner line "<frame> tmi:
+//! On a terminal (stderr and stdout both), one spinner line "<frame> tmiki:
 //! <phase> (<elapsed>s)", redrawn in place and erased when done. With
 //! `TMI_PROGRESS=1` otherwise, one line per phase change (at most one a
 //! second within a phase) and a closing per-phase time breakdown.

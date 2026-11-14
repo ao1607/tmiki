@@ -96,7 +96,7 @@ pub enum Unavailable {
     Missing,
     Unreadable(String),
     Denied(String),
-    /// Built for an interface this tmi does not serve.
+    /// Built for an interface this tmiki does not serve.
     Abi(String),
     /// `TMI_PLUGIN_DEV` names a development plugin that does not start.
     Dev(String),
@@ -382,7 +382,7 @@ impl Formats {
         }
         let importer = plugin.importer();
         if !importer.abi.starts_with("tmi:format@0.1.") {
-            return Err(Unavailable::Abi(format!("it exports {}, this tmi reads tmi:format 0.1", importer.abi)));
+            return Err(Unavailable::Abi(format!("it exports {}, this tmiki reads tmi:format 0.1", importer.abi)));
         }
         let backend: Arc<dyn PluginBackend> = Arc::new(plugin);
         let loaded = Loaded { reader: DynReader::from_backend(backend), importer };

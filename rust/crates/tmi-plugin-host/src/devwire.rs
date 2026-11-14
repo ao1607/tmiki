@@ -83,7 +83,7 @@ fn no_case<T>(what: &str, ty: &str, tag: &str) -> R<T> {
     bad(format!("{what}: {ty} has no case {tag:?}"))
 }
 
-// -- plugin to tmi ---------------------------------------------------------------
+// -- plugin to tmiki ---------------------------------------------------------------
 
 pub fn span(v: &Value, what: &str) -> R<Span> {
     Ok(Span { offset: v.field(what, "offset")?.u64(what)?, len: v.field(what, "len")?.u64(what)? })
@@ -616,7 +616,7 @@ pub fn plugin_info_value(i: &PluginInfo) -> Value {
     ])
 }
 
-// -- tmi to plugin ---------------------------------------------------------------
+// -- tmiki to plugin ---------------------------------------------------------------
 
 pub fn layer_edit_value(e: &LayerEdit) -> Value {
     Value::record([

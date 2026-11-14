@@ -7,7 +7,7 @@
 //! <text>, payloads)`. A recipe that runs the plugin's own codec also names
 //! the component (its decoding is the component's code).
 //!
-//! The text form is tmi's and fixed (a record holds the key): never derive
+//! The text form is tmiki's and fixed (a record holds the key): never derive
 //! it from `Debug`.
 
 use crate::types::*;

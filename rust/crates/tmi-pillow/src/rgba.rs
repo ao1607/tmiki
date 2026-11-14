@@ -1,7 +1,7 @@
 //! Whole-image operations on packed RGBA8 buffers as Pillow does them:
 //! `crop` (zeros outside the image), `paste` (a straight copy),
 //! `alpha_composite(im, dest)` at an offset, and the "visible difference"
-//! box of tmi's diff (`ImageChops` difference / lighter / multiply plus
+//! box of tmiki's diff (`ImageChops` difference / lighter / multiply plus
 //! `getbbox`). Coordinates may lie outside the image; what falls outside is
 //! dropped (or, for `crop`, zero).
 
@@ -71,7 +71,7 @@ pub fn over(dst: &mut [u8], dw: usize, dh: usize, src: &[u8], sw: usize, sh: usi
     });
 }
 
-/// Whether a pixel counts in tmi's visible difference of two RGBA images:
+/// Whether a pixel counts in tmiki's visible difference of two RGBA images:
 /// its alpha differs, or a colour channel differs by enough to show at the
 /// larger of the two alphas (`multiply(|a - b|, max alpha) != 0`).
 #[inline]

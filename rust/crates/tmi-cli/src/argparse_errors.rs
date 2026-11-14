@@ -510,7 +510,7 @@ pub fn for_argv(argv: &[String]) -> Option<String> {
     }
 }
 
-/// What argparse does with `tmi <path...> <args...>`: `path` names a
+/// What argparse does with `tmiki <path...> <args...>`: `path` names a
 /// parser without subparsers (`["mv"]`, `["remote", "add"]`).
 pub fn check(path: &[&str], args: &[String]) -> Verdict {
     let Some(p) = PARSERS.iter().find(|p| p.path == path) else { return Verdict::Unsure };

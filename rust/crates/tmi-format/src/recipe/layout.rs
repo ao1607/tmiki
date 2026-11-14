@@ -173,7 +173,7 @@ fn put(px: &mut [u8], m: u8, v: u8) {
     }
 }
 
-/// `fill` of 8-bit samples, with the layouts tmi's own formats use spelled
+/// `fill` of 8-bit samples, with the layouts tmiki's own formats use spelled
 /// out (the same writes, in the same order).
 fn fill_eight(dst: &mut [u8], row: &[u8], width: usize, nch: usize, ops: &[(usize, u8)]) {
     let row = &row[..width * nch];

@@ -1,6 +1,6 @@
 [package]
 name = "tmi-format"
-description = "tmi's format interface (PLUGINS.md): the WIT types in Rust, the native recipe decoder, the reader registry and the import pipeline, with the raster formats as the built-in readers"
+description = "tmiki's format interface (PLUGINS.md): the WIT types in Rust, the native recipe decoder, the reader registry and the import pipeline, with the raster formats as the built-in readers"
 version.workspace = true
 edition.workspace = true
 

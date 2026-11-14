@@ -1,6 +1,6 @@
 //! `tmiki plugin doctor` (PLUGINS.md 7.1): what `build` needs (cargo and the
 //! `wasm32-wasip2` target: plugins are written in Rust, Q14) and what is
-//! installed. tmi installs nothing; it says how.
+//! installed. tmiki installs nothing; it says how.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

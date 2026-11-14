@@ -3,7 +3,7 @@
 //!
 //! Reproduces `parse_mdp2`, `is_renderable_raster`, `iter_layer_tiles`,
 //! `_tile_to_rgba` and the two layer decodes of the Python reader
-//! (`tmiref/mdp2.py`, the code tmi used before stage 2c):
+//! (`tmiref/mdp2.py`, the code tmiki used before stage 2c):
 //!
 //! * `render_layer_rgba(apply_opacity=False)`, the layer's own pixels that
 //!   the importer stores and write-back compares: every tile composited

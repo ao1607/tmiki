@@ -2,17 +2,17 @@
 //!
 //! A development plugin is an ordinary program (a native build of a Rust
 //! plugin through `tmi_plugin_sdk::dev_main`) that speaks the WIT interface `tmi:format@0.1.0`
-//! with tmi over its standard input and output. Nothing here is specific to
-//! tmi's own types; `tmi-plugin-host` (the tmi side) and the SDKs (the
+//! with tmiki over its standard input and output. Nothing here is specific to
+//! tmiki's own types; `tmi-plugin-host` (the tmiki side) and the SDKs (the
 //! plugin side) convert their types to and from [`Value`].
 //!
 //! # Frames
 //!
 //! Each message is one frame: a 4-byte big-endian length `n` (1 to
 //! [`MAX_FRAME`]) and `n` bytes holding exactly one CBOR data item (RFC
-//! 8949; definite lengths only, no tags). tmi writes frames to the plugin's
+//! 8949; definite lengths only, no tags). tmiki writes frames to the plugin's
 //! stdin and reads them from its stdout. The plugin's stderr is free text
-//! (tmi shows it). A plugin must not print anything else on stdout.
+//! (tmiki shows it). A plugin must not print anything else on stdout.
 //!
 //! # WIT values in CBOR
 //!
@@ -35,7 +35,7 @@
 //!
 //! Every message is a CBOR map:
 //!
-//! - `{"call": name, "args": [..]}`: tmi calls an export of the plugin. The
+//! - `{"call": name, "args": [..]}`: tmiki calls an export of the plugin. The
 //!   names are `<interface>.<function>`: `reader.info`, `reader.probe`,
 //!   `reader.read-structure`, `reader.read-layer`, `reader.decode-chunk`,
 //!   `writer.write-layers`; and `hello` (below). Arguments are positional,
@@ -49,7 +49,7 @@
 //!   `<interface>.<resource>.drop` `[h]`.
 //! - `{"return": value}`: the answer to the latest open call or import.
 //! - `{"trap": message}`: the callee failed (a panic, a bad handle, a value
-//!   that does not fit the WIT): the call is over. When tmi answers an import
+//!   that does not fit the WIT): the call is over. When tmiki answers an import
 //!   with a trap, the plugin abandons the call it is answering and answers it
 //!   with a trap too (the SDKs do this).
 //!
@@ -57,12 +57,12 @@
 //! number of imports (each answered before the next) and then one return or
 //! trap. Handles are valid for one call only (each call is a fresh instance
 //! for a wasm plugin; PLUGINS.md 3.5): the source file is handle 0, pixels
-//! and blobs are numbered by tmi (`write-layers` hands over pixels `0..n`),
-//! databases by tmi in the order opened.
+//! and blobs are numbered by tmiki (`write-layers` hands over pixels `0..n`),
+//! databases by tmiki in the order opened.
 //!
 //! `hello` (`args: [1]`, the protocol version) is the first call. The answer:
 //! `{"protocol": 1, "abi": "tmi:format@0.1.0", "writer": bool}` (`writer`:
-//! the plugin exports `writer`; tmi writes through it only when `info` also
+//! the plugin exports `writer`; tmiki writes through it only when `info` also
 //! says `can-write`). The plugin ends when its stdin ends.
 //!
 //! Records a development plugin makes carry `importer.component_sha256 =

@@ -1,6 +1,6 @@
 [package]
 name = "tmi-repo"
-description = "tmi's repository: refs, revisions, commits, index, stat cache, config, ignore, reflog"
+description = "tmiki's repository: refs, revisions, commits, index, stat cache, config, ignore, reflog"
 version.workspace = true
 edition.workspace = true
 

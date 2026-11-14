@@ -73,7 +73,7 @@ pub fn open_repo(path: &Path) -> Result<Repo> {
     if path.join("objects").is_dir() && path.join("refs").is_dir() {
         return Ok(Repo::new(None, path.to_path_buf()));
     }
-    Err(RepoError::runtime(format!("not a tmi repository: {}", path.display())))
+    Err(RepoError::runtime(format!("not a tmiki repository: {}", path.display())))
 }
 
 impl LocalRemote {

@@ -1,7 +1,7 @@
 # The plugin author's tools (PLUGINS.md 7.1, P8): for both templates of
 # `tmiki plugin new` (reader and writer; plugins are written in Rust, Q14),
 # new -> build -> test on Linux, Windows and macOS, with the tools a plugin
-# author installs (rustup's wasm32-wasip2 target). tmi itself installs and
+# author installs (rustup's wasm32-wasip2 target). tmiki itself installs and
 # downloads nothing; this workflow installs what `tmiki plugin doctor` names.
 #
 # The second job runs tmi-plugin-tools' own tests: every check of `tmiki plugin
@@ -44,7 +44,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: rust
-      - name: Build tmi
+      - name: Build tmiki
         working-directory: rust
         run: |
           cargo build --locked --release -p tmi-cli

@@ -21,7 +21,7 @@ impl Registry {
         Registry { readers: Vec::new() }
     }
 
-    /// The readers every tmi has.
+    /// The readers every tmiki has.
     pub fn builtin() -> &'static Registry {
         static REGISTRY: OnceLock<Registry> = OnceLock::new();
         REGISTRY.get_or_init(|| {
@@ -73,7 +73,7 @@ impl Default for Registry {
 }
 
 /// The import of a file that is neither CLIP nor MDP2: through the reader the
-/// registry picks. A built-in reader that says `NotThisFormat` (P0e: tmi's
+/// registry picks. A built-in reader that says `NotThisFormat` (P0e: tmiki's
 /// decoders do not read it) leaves an opaque blob.
 pub fn import_via_registry(registry: &Registry, name: &str, source: &[u8], digest: &str, opts: &Options, warns: &mut Warnings) -> Res<ImportedFile> {
     let Some(reader) = registry.select(name, source) else {

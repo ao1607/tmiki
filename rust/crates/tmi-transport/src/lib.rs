@@ -86,7 +86,7 @@ pub fn open(url: &str) -> Result<Remote> {
 }
 
 /// transport `checked_refs(refs)`: what a remote lists is data other people
-/// write, so every branch and tag name must be one tmi could write
+/// write, so every branch and tag name must be one tmiki could write
 /// (`ref_name_problem`) and every value empty or a 64-digit lower-case hex
 /// object id. The whole listing is refused otherwise, before any ref is
 /// written (an id reaches ref files, messages and the pre-push hook's

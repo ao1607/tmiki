@@ -88,7 +88,7 @@ fn describe_or_forward(
         Ok(d) => Ok(d),
         Err(RepoError::Forward(w)) if plugin.is_none() => Err(RepoError::Forward(w)),
         Err(e) if plugin.is_none() => Err(RepoError::forward(format!("layer scan failed: {e}"))),
-        Err(e) => Ok((vec![format!("layer scan failed: {}", e.message().unwrap_or("a record tmi does not read"))], false)),
+        Err(e) => Ok((vec![format!("layer scan failed: {}", e.message().unwrap_or("a record tmiki does not read"))], false)),
     }
 }
 

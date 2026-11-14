@@ -1,6 +1,6 @@
 [package]
 name = "tmi-plugin-tools"
-description = "tmi's tools for plugin authors (PLUGINS.md 7.1, P8): plugin new / build / test / doctor / install, the templates and PLUGIN_SPEC.md"
+description = "tmiki's tools for plugin authors (PLUGINS.md 7.1, P8): plugin new / build / test / doctor / install, the templates and PLUGIN_SPEC.md"
 version.workspace = true
 edition.workspace = true
 

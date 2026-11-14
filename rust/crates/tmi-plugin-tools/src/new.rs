@@ -3,9 +3,9 @@
 //!
 //! ```text
 //! <id>/
-//!   wit/tmi-format.wit     tmi's interface, as this tmi speaks it
+//!   wit/tmi-format.wit     tmiki's interface, as this tmiki speaks it
 //!   Cargo.toml, src/lib.rs the template on tmi-plugin-sdk: a reader of the
-//!                          made-up "tmi sample" format, and with --writer its
+//!                          made-up "tmiki sample" format, and with --writer its
 //!                          writer; src/bin/dev.rs, its development plugin
 //!   tests/corpus/          sample.<id without dashes>, which the template reads
 //!   SPEC.md                format notes (the sample format's, to replace)
@@ -18,10 +18,10 @@
 //! The template builds and passes `tmiki plugin test` (`--native` too) as it
 //! is. It is written on the SDK, so that the same code is the
 //! component and a development plugin (`tmiki plugin dev`). The directory is
-//! outside tmi's repository, so the SDK is not a dependency on a path into
-//! it nor on a registry: `new` writes the SDK's sources of this tmi into the
-//! directory ([`sdk_files`]), the versions that speak this tmi's RPC and
-//! WIT. A plugin made with an older tmi keeps its copy; `tmiki plugin new` of
+//! outside tmiki's repository, so the SDK is not a dependency on a path into
+//! it nor on a registry: `new` writes the SDK's sources of this tmiki into the
+//! directory ([`sdk_files`]), the versions that speak this tmiki's RPC and
+//! WIT. A plugin made with an older tmiki keeps its copy; `tmiki plugin new` of
 //! a newer one writes the new copy to take over.
 
 use std::path::{Path, PathBuf};
@@ -94,11 +94,11 @@ pub fn files(o: &Options) -> Vec<(String, Vec<u8>)> {
     out
 }
 
-/// The SDK the template is written on, as this tmi has it:
+/// The SDK the template is written on, as this tmiki has it:
 /// `rust/plugins/sdk` and `rust/crates/tmi-plugin-dev` under `sdk/` (their
 /// paths to each other and to the WIT made the directory's own).
 pub fn sdk_files() -> Vec<(String, Vec<u8>)> {
-    let header = format!("# written by tmiki plugin new (tmi {}): tmi's own copy, do not edit\n", env!("CARGO_PKG_VERSION"));
+    let header = format!("# written by tmiki plugin new (tmiki {}): tmiki's own copy, do not edit\n", env!("CARGO_PKG_VERSION"));
     let mut out: Vec<(String, Vec<u8>)> = Vec::new();
     let mut text = |rel: &str, body: &str, rewrites: &[(&str, &str)]| {
         let mut s = body.replace("\r\n", "\n");

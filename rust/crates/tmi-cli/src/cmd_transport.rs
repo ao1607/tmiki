@@ -27,7 +27,7 @@ pub fn init(argv: &[String], out: &mut Out) -> CmdResult {
     if fresh {
         tmi_repo::trust::grant_hooks(&repo.repo_dir)?;
     }
-    out.println(format!("Initialized empty tmi repository in {}", repo.repo_dir.display()));
+    out.println(format!("Initialized empty tmiki repository in {}", repo.repo_dir.display()));
     Ok(0)
 }
 

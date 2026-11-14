@@ -1,5 +1,5 @@
 //! `Image.convert(mode)` (PIL/Image.py) over libImaging/Convert.c, for the
-//! modes Pillow's PNG and JPEG decoders produce and the targets tmi asks
+//! modes Pillow's PNG and JPEG decoders produce and the targets tmiki asks
 //! for (mostly "RGBA"), including the Python-level rules around it:
 //!
 //! - `info["transparency"]` on "1" / "L" / "I" / "I;16" (to "LA" / "RGBA")

@@ -129,7 +129,7 @@ pub const EXCEPTIONS: bool = false;
 
 /// The text the compiled-component cache key holds for `s`: the settings
 /// that change compiled code (wasmtime's own compatibility hash covers its
-/// version and compiler flags; this adds what tmi chose).
+/// version and compiler flags; this adds what tmiki chose).
 pub fn fingerprint(s: &Settings) -> String {
     format!(
         "tmi-plugin-host {} wasmtime 49.0.5 fuel={} epoch={} stack={} pooling={} cow={} maxmem={} exceptions={}",

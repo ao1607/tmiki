@@ -106,7 +106,7 @@ fn importer_text(importer: Option<&Value>) -> Option<String> {
 }
 
 /// "importer changed ..." when the two records were made by different
-/// plugins (or one by a plugin, one by tmi itself).
+/// plugins (or one by a plugin, one by tmiki itself).
 fn importer_note(old: Option<&Value>, new: Option<&Value>) -> Option<String> {
     let (old, new) = (old.filter(|v| v.truthy()), new.filter(|v| v.truthy()));
     let sha = |v: Option<&Value>| v.and_then(|i| i.get("component_sha256")).and_then(Value::as_str).map(str::to_string);
@@ -737,7 +737,7 @@ pub fn diff_sides(run: &mut DiffRun, left: &DiffSide, right: &DiffSide, path_fil
                 source = src;
             }
         } else if let (Some(o), Some(n)) = (old, new) {
-            // the same bytes, read by the same plugin (or both by tmi itself;
+            // the same bytes, read by the same plugin (or both by tmiki itself;
             // PLUGINS.md 4.5: an importer change alone is shown)
             if py_eq(get(o, "source_digest"), get(n, "source_digest")) && importer_note(o.get("importer"), n.get("importer")).is_none() {
                 continue;

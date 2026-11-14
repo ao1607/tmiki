@@ -1,7 +1,7 @@
-//! {{id}}: a tmi format plugin (tmi:format@{{abi}}, world `{{world}}`).
+//! {{id}}: a tmiki format plugin (tmi:format@{{abi}}, world `{{world}}`).
 //!
 //! This is the template `tmiki plugin new` writes. It reads the made-up
-//! "tmi sample" format of `tests/corpus/sample.{{ext}}` (described in
+//! "tmiki sample" format of `tests/corpus/sample.{{ext}}` (described in
 //! SPEC.md), so that `tmiki plugin build` and `tmiki plugin test` pass from the
 //! start. Replace `parse`, `probe` and `read_structure` with your format;
 //! PLUGIN_SPEC.md is the full contract.
@@ -11,12 +11,12 @@
 //!
 //! - the component (`cargo build --release --target wasm32-wasip2`, which
 //!   `tmiki plugin build` runs): `export_plugin!` below;
-//! - a development plugin, an ordinary program speaking tmi's interface on
+//! - a development plugin, an ordinary program speaking tmiki's interface on
 //!   stdin and stdout (`src/bin/dev.rs`, `cargo build --features dev`,
 //!   which `tmiki plugin build` also runs): `tmiki plugin dev target/debug/{{id}}-dev
 //!   -- add x.{{ext}}` tries it in a repository, `tmiki plugin test --native`
 //!   compares it with the component, and a native debugger and `eprintln!`
-//!   work in it (never print to stdout: it is the pipe to tmi).
+//!   work in it (never print to stdout: it is the pipe to tmiki).
 
 use tmi_plugin_sdk::{self as t, SourceFile};
 {{#writer}}

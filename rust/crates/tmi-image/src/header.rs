@@ -8,7 +8,7 @@
 //! directory keeps the tags read before the cut), and `jpeg_factory`'s MPO
 //! test. `Err` exactly where Pillow's `open` / `load` raises (or warns, for a
 //! malformed MPO); [`crate::import::open_for_import`] then takes the file as
-//! not readable by tmi, so it is stored as an opaque blob.
+//! not readable by tmiki, so it is stored as an opaque blob.
 
 use crate::png_dec;
 
@@ -76,7 +76,7 @@ pub fn jpeg_header(data: &[u8]) -> R<Header> {
     if info.size.0 == 0 || info.size.1 == 0 {
         return refused("not identified by this driver"); // ImageFile: a size of 0
     }
-    // (an infinite XResolution gives inf, which tmi stores as Python does)
+    // (an infinite XResolution gives inf, which tmiki stores as Python does)
     let dpi = info.dpi.map(|(d, _)| d.to_f64());
     Ok(Header { format: "jpeg", size: info.size, dpi, icc: info.icc_profile.is_some(), mode: None })
 }
@@ -125,7 +125,7 @@ impl PyNum {
     }
 }
 
-/// What `Image.open(jpeg)` reads from the markers before the scan, as tmi
+/// What `Image.open(jpeg)` reads from the markers before the scan, as tmiki
 /// uses it (import and write-back).
 #[derive(Clone, Debug, Default)]
 pub struct JpegInfo {
@@ -149,7 +149,7 @@ pub struct JpegInfo {
     /// MpoImageFile; its frame 0 is the JPEG itself).
     pub mpo: bool,
     /// `jpeg_factory` warned "Image appears to be a malformed MPO file": the
-    /// facts are right, but Python prints a warning that tmi does not, so
+    /// facts are right, but Python prints a warning that tmiki does not, so
     /// the import hands such a file to Python.
     pub malformed_mpo: bool,
 }

@@ -1,5 +1,5 @@
 //! PLUGINS.md 7.1 item 5 (`--fuzz N`): the corpus damaged N ways, each
-//! imported. An import may succeed or fail; tmi must not panic. A plugin
+//! imported. An import may succeed or fail; tmiki must not panic. A plugin
 //! that traps (or runs out of fuel or time) on a damaged file is a warning:
 //! it should have answered with a `read-error`.
 //!
@@ -145,7 +145,7 @@ pub fn run(report: &mut Report, reader: &dyn FormatReader, importer: &Importer, 
     }
     report.notes.push(format!("fuzz: {n} damaged files: {read} read, {refused} refused with a read-error, {} traps, {} host panics", traps.len(), panics.len()));
     for (k, what, e) in panics.iter().take(10) {
-        report.fail(CHECK, None, format!("case {k}, {what}: tmi panicked ({e})"));
+        report.fail(CHECK, None, format!("case {k}, {what}: tmiki panicked ({e})"));
     }
     for (k, what, e) in traps.iter().take(10) {
         report.warn(CHECK, None, format!("case {k}, {what}: {e} (a damaged file should give a read-error)"));

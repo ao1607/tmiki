@@ -58,7 +58,7 @@ const STDERR_TAIL: usize = 64 << 10;
 pub struct DevCommand {
     pub program: OsString,
     pub args: Vec<OsString>,
-    /// Where it runs (`None`: tmi's own working directory). A relative
+    /// Where it runs (`None`: tmiki's own working directory). A relative
     /// program path with a directory in it is taken from there too.
     pub dir: Option<std::path::PathBuf>,
 }
@@ -272,7 +272,7 @@ impl Process {
 
     /// Sends `m` and waits until the plugin has taken it, or `deadline`
     /// (a plugin that asked for a large answer and does not read its stdin
-    /// is a timeout, not a hang of tmi).
+    /// is a timeout, not a hang of tmiki).
     fn send(&mut self, m: Message, deadline: Instant, limit: Duration) -> Result<(), Fail> {
         let mut frame = Vec::new();
         write_frame(&mut frame, &m.into_value()).map_err(|e| Fail::Process(PluginError::Trap(format!("a message to the development plugin: {e}"))))?;
@@ -290,7 +290,7 @@ impl Process {
     fn recv(&mut self, deadline: Instant, limit: Duration) -> Result<Message, Fail> {
         let left = deadline.saturating_duration_since(Instant::now());
         match self.frames.recv_timeout(left) {
-            Ok(Ok(v)) => Message::from_value(v).map_err(|e| Fail::Process(PluginError::Trap(format!("the development plugin sent a message tmi does not read: {e}")))),
+            Ok(Ok(v)) => Message::from_value(v).map_err(|e| Fail::Process(PluginError::Trap(format!("the development plugin sent a message tmiki does not read: {e}")))),
             Ok(Err(e)) => Err(Fail::Process(PluginError::Trap(format!("the development plugin wrote {e}")))),
             Err(RecvTimeoutError::Timeout) => Err(Fail::Process(PluginError::Timeout { limit })),
             Err(RecvTimeoutError::Disconnected) => Err(Fail::Process(self.gone("stopped answering (its stdout closed)"))),
@@ -521,7 +521,7 @@ impl CallCx<'_> {
                 let max = a(1)?.u32("max-side").map_err(ve)?;
                 Value::uint(self.write_cx()?.thumbnail(h, max)?)
             }
-            other => return Err(format!("tmi has no host function {other:?}")),
+            other => return Err(format!("tmiki has no host function {other:?}")),
         })
     }
 }
@@ -649,7 +649,7 @@ fn hello(p: &mut Process, limit: Duration) -> Result<(String, bool), PluginError
     let bad = |e: ValueError| PluginError::Link(format!("the development plugin's hello: {e}"));
     let protocol = v.field("hello", "protocol").and_then(|p| p.u64("protocol")).map_err(bad)?;
     if protocol != PROTOCOL {
-        return Err(PluginError::Link(format!("the development plugin speaks protocol {protocol}; this tmi speaks {PROTOCOL}")));
+        return Err(PluginError::Link(format!("the development plugin speaks protocol {protocol}; this tmiki speaks {PROTOCOL}")));
     }
     let abi = v.field("hello", "abi").and_then(|a| a.string("abi")).map_err(bad)?;
     let writer = v.field("hello", "writer").and_then(|w| w.bool("writer")).map_err(bad)?;

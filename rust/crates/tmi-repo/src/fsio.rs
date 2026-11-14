@@ -29,7 +29,7 @@ pub fn unmark_mutated() {
 /// An `OSError` message as `tmiki: error: {exc}` prints it is not reproduced;
 /// this one names the path and the OS error.
 pub fn io_err(path: &Path, e: std::io::Error) -> RepoError {
-    // A full disk, in tmi's words (issue #42; cli.py `main` says the same).
+    // A full disk, in tmiki's words (issue #42; cli.py `main` says the same).
     if tmi_store::store::is_no_space(&e) {
         return RepoError::runtime(format!("the disk is full while writing {}; free some space and run the command again", path.display()));
     }
@@ -86,7 +86,7 @@ pub fn is_sharing_error(e: &std::io::Error) -> bool {
 /// lockfile.py `replace`: `std::fs::rename(src, dst)`, waiting (boundedly)
 /// for a Windows handle open on `dst` to close. Std's rename falls back from
 /// POSIX semantics to MoveFileEx, and either fails while a process holds
-/// `dst` open without FILE_SHARE_DELETE (Python's open(), another tmi
+/// `dst` open without FILE_SHARE_DELETE (Python's open(), another tmiki
 /// version, a virus scanner). Only [`is_sharing_error`] is retried, on
 /// Windows only and not when `dst` is a directory, with a doubling delay from
 /// 1 ms up to 100 ms for [`RENAME_RETRY`] in total; then that error is

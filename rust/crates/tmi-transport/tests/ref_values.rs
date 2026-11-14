@@ -1,6 +1,6 @@
 //! What a remote lists as refs is data other people write: a value that is not
 //! a 64-digit lower-case hex object id (it would reach ref files, messages and
-//! the pre-push hook's `TMI_REMOTE_COMMIT`) and a name tmi could not write
+//! the pre-push hook's `TMI_REMOTE_COMMIT`) and a name tmiki could not write
 //! (a bidi control, a control character, a Windows device name) refuse the
 //! whole operation before any ref is written. The Python side's twins are in
 //! tests/test_remote_refs.py.

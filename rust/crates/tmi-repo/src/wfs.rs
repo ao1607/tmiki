@@ -181,7 +181,7 @@ pub fn object_timestamp() -> Result<String> {
 /// mode, so "\r\n" on Windows.
 pub fn reflog_append(repo: &Repo, ref_name: &str, old: Option<&str>, new: &str, identity: Option<&(String, String)>, reason: &str) {
     let path = if ref_name == "HEAD" { repo.repo_dir.join("logs").join("HEAD") } else { repo.repo_dir.join("logs").join(ref_name) };
-    let name = identity.map(|i| i.0.as_str()).filter(|n| !n.is_empty()).unwrap_or("tmi");
+    let name = identity.map(|i| i.0.as_str()).filter(|n| !n.is_empty()).unwrap_or("tmiki");
     let email = identity.map(|i| i.1.as_str()).unwrap_or("");
     let old = old.unwrap_or(crate::reflog::ZERO_OID);
     let (y, mo, d, h, mi, s, _) = utc_now();

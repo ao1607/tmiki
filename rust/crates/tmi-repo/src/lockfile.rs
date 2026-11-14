@@ -38,8 +38,8 @@ pub enum Expect<'a> {
 /// `lock_message(display)`.
 pub fn lock_message(display: &str) -> String {
     format!(
-        "unable to create '{display}': File exists. Another tmi process seems to be running in this \
-         repository. If no other tmi process is running, a previous one probably crashed: \
+        "unable to create '{display}': File exists. Another tmiki process seems to be running in this \
+         repository. If no other tmiki process is running, a previous one probably crashed: \
          remove the file and try again."
     )
 }
@@ -48,7 +48,7 @@ pub fn lock_message(display: &str) -> String {
 /// for all of [`fsio::RENAME_RETRY`] (Windows).
 pub fn busy_message(display: &str) -> String {
     format!(
-        "unable to update '{display}': another program keeps the file open (another tmi process \
+        "unable to update '{display}': another program keeps the file open (another tmiki process \
          reading it, a virus scanner, a backup or sync tool); nothing was written. Try again."
     )
 }
@@ -60,7 +60,7 @@ pub fn ref_moved_message(name: &str, expected: Option<&str>, actual: Option<&str
         _ => "missing".to_string(),
     };
     format!(
-        "{name} was changed by another tmi process while this command was running \
+        "{name} was changed by another tmiki process while this command was running \
          (it was {}, it is now {}); nothing was written",
         short(expected),
         short(actual)
@@ -194,7 +194,7 @@ pub fn release(path: &Path) {
     }
 }
 
-/// Give up the locks while a hook runs (it may run tmi); see [`resume`].
+/// Give up the locks while a hook runs (it may run tmiki); see [`resume`].
 pub fn suspend() -> Vec<(PathBuf, String)> {
     let all: Vec<(PathBuf, String)> = held().clone();
     for (p, _) in &all {
@@ -297,7 +297,7 @@ mod tests {
         std::fs::remove_dir_all(dir.parent().unwrap()).unwrap();
     }
 
-    /// A handle that outlasts the wait: tmi's message, the lock removed, the
+    /// A handle that outlasts the wait: tmiki's message, the lock removed, the
     /// ref unchanged.
     #[cfg(windows)]
     #[test]
