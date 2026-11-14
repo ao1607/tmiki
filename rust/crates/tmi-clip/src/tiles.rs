@@ -348,6 +348,21 @@ pub fn decode_offscreen_on(
     if tile_cols == 0 && !tiles.is_empty() {
         return Err("tiles but no tile columns (ZeroDivisionError)".into());
     }
+    // Every decoded tile is held until they are composited: what they hold
+    // (each cut to the offscreen) is kept to twice the offscreen. CSP writes
+    // one tile a cell, inside it, so its offscreens hold at most once theirs.
+    let held: u128 = tiles
+        .iter()
+        .map(|t| {
+            let (tx, ty) = ((t.block_index % tile_cols) * TILE_SIZE, (t.block_index / tile_cols) * TILE_SIZE);
+            let cw = tx.saturating_add(t.tile_w).min(pixel_w).saturating_sub(tx);
+            let ch = ty.saturating_add(t.tile_h).min(pixel_h).saturating_sub(ty);
+            cw as u128 * ch as u128
+        })
+        .sum();
+    if held > 2 * pixel_w as u128 * pixel_h as u128 {
+        return Err(format!("tiles cover the {pixel_w}x{pixel_h} offscreen more than twice"));
+    }
 
     let decoded: Result<Vec<TilePixels>, String> = if parallel {
         tiles.par_iter().map(|t| decode_tile(t, tile_cols, pixel_w, pixel_h)).collect()
@@ -505,6 +520,19 @@ pub(crate) mod tests {
         assert!(e.contains("declares"), "{e}");
         // The mask path (window.rs) refuses the same declarations.
         assert!(inflate_exact(&[0x78, 0x9c, 3, 0, 0, 0, 0, 1], MAX_TILE_DECLARED + 1).is_none());
+    }
+
+    /// 1-bit tiles of 4096 x 1280 (each a 640-byte zlib stream for 21 MB of
+    /// RGBA held) repeated on one 4096 x 1280 offscreen: refused before any
+    /// is decoded once they cover it more than twice.
+    #[test]
+    fn tiles_repeated_over_an_offscreen_are_refused_past_twice_its_area() {
+        let (w, h) = (4096usize, 1280usize);
+        let bits = vec![0xFFu8; w * h / 8];
+        let one = record(0, bits.len() as u32, w as u32, h as u32, Some(&bits));
+        assert_eq!(decode(&payload(&[one.clone(), one.clone()]), 1, w, h).unwrap().w, w);
+        let e = decode(&payload(&vec![one; 1000]), 1, w, h).unwrap_err();
+        assert!(e.contains("more than twice"), "{e}");
     }
 
     #[test]

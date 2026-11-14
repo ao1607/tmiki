@@ -41,10 +41,14 @@ impl Ctx<'_> {
                     return Ok(None);
                 }
             };
+            if let Some(why) = tmi_clip::tiles::offscreen_oversize(attr.pixel_width, attr.pixel_height, self.doc.width, self.doc.height) {
+                self.note_unreadable(info, why);
+                return Ok(None);
+            }
             let init = mask_init_alpha(&attr);
             let tiles = match self.doc.exta(info) {
                 None => Vec::new(),
-                Some(exta) => match mask_tiles(container::payload(self.raw, exta), attr.tile_cols) {
+                Some(exta) => match mask_tiles(container::payload(self.raw, exta), attr.tile_cols, attr.pixel_width, attr.pixel_height) {
                     Ok((tiles, unknown_sizes)) => {
                         self.note_tile_sizes(&unknown_sizes);
                         tiles
@@ -88,7 +92,11 @@ impl Ctx<'_> {
             for y in d[1]..d[3] {
                 let s = ((y - tile[1]) as usize) * t.w + (d[0] - tile[0]) as usize;
                 let o = ((y - crop[1]) as usize) * cw + (d[0] - crop[0]) as usize;
-                mask[o..o + n].copy_from_slice(&t.alpha[s..s + n]);
+                if t.alpha.is_empty() {
+                    mask[o..o + n].fill(0); // a tile of an unknown size
+                } else {
+                    mask[o..o + n].copy_from_slice(&t.alpha[s..s + n]);
+                }
             }
         }
         Ok(Some((crop, mask)))

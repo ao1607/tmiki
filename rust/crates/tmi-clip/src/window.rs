@@ -83,7 +83,8 @@ pub fn windows_decode_like_whole(payload: &[u8], tile_cols: usize) -> bool {
     (tile_cols > 0 || tiles.is_empty()) && tiles.iter().all(|t| t.tile_w <= TILE_SIZE && t.tile_h <= TILE_SIZE)
 }
 
-/// One painted tile of a layer mask: its alpha plane at (x, y).
+/// One painted tile of a layer mask: its alpha plane at (x, y); empty for a
+/// tile of an unknown size, which is 0 over its `w` x `h`.
 pub struct MaskTile {
     pub x: usize,
     pub y: usize,
@@ -102,11 +103,15 @@ fn utf16_ok(name: &[u8]) -> bool {
 /// `(bytes per tile, pixels)` among them (warned about; their alpha is 0).
 /// `Err` wherever Python raises (malformed records, zlib errors, 1-bit
 /// tiles whose width is not a multiple of 8): the mask is unreadable.
-pub fn mask_tiles(payload: &[u8], tile_cols: usize) -> Result<(Vec<MaskTile>, Vec<(usize, usize)>), String> {
-    mask_tiles_opt(payload, tile_cols).ok_or_else(|| "malformed mask tiles".to_string())?
+///
+/// A tile of an unknown size holds no alpha (`alpha` is empty: 0 over its
+/// rectangle), and the tiles kept are held to twice the 256-pixel cells of
+/// the `pixel_w` x `pixel_h` offscreen (CSP writes one tile a cell).
+pub fn mask_tiles(payload: &[u8], tile_cols: usize, pixel_w: usize, pixel_h: usize) -> Result<(Vec<MaskTile>, Vec<(usize, usize)>), String> {
+    mask_tiles_opt(payload, tile_cols, pixel_w, pixel_h).ok_or_else(|| "malformed mask tiles".to_string())?
 }
 
-fn mask_tiles_opt(payload: &[u8], tile_cols: usize) -> Option<Result<(Vec<MaskTile>, Vec<(usize, usize)>), String>> {
+fn mask_tiles_opt(payload: &[u8], tile_cols: usize, pixel_w: usize, pixel_h: usize) -> Option<Result<(Vec<MaskTile>, Vec<(usize, usize)>), String>> {
     if payload.get(8..16)? != b"extrnlid" {
         return None;
     }
@@ -148,6 +153,15 @@ fn mask_tiles_opt(payload: &[u8], tile_cols: usize) -> Option<Result<(Vec<MaskTi
     if tile_cols == 0 {
         return Some(Err("tiles but no tile columns (ZeroDivisionError)".into()));
     }
+    let cells = |n: usize| n.div_ceil(TILE_SIZE) as u128 * TILE_SIZE as u128;
+    let held: u128 = raw
+        .iter()
+        .filter(|&&(_, bpt, tw, th, _)| tw.checked_mul(th).is_some_and(|px| tile_kind(bpt, px).is_some()))
+        .map(|&(_, _, tw, th, _)| tw as u128 * th as u128)
+        .sum();
+    if held > 2 * cells(pixel_w) * cells(pixel_h) {
+        return Some(Err(format!("mask tiles cover the {pixel_w}x{pixel_h} offscreen more than twice")));
+    }
     // Sequential: masks are decoded once for every band waiting on them, and
     // a rayon wait here could run one of those bands on this very thread.
     let mut unknown = Vec::new();
@@ -163,7 +177,7 @@ fn mask_tiles_opt(payload: &[u8], tile_cols: usize) -> Option<Result<(Vec<MaskTi
             None => {
                 // `_tile_to_image(tile).getchannel("A")`: warned, transparent.
                 unknown.push((bpt, pixels));
-                vec![0u8; pixels]
+                Vec::new()
             }
             Some(kind) if !one_bit_rows_ok(kind, tw, th) => {
                 return Some(Err(format!("1-bit tile {block} is {tw} pixels wide: not enough image data")));
@@ -195,16 +209,30 @@ mod tests {
     #[test]
     fn mask_tiles_report_unknown_sizes_and_unreadable_data() {
         let p = payload(&[record(0, 4, 2, 2, Some(&[1, 2, 3, 4])), record(1, 3, 2, 2, Some(&[9, 9, 9]))]);
-        let (tiles, unknown) = mask_tiles(&p, 2).unwrap();
+        let (tiles, unknown) = mask_tiles(&p, 2, 512, 256).unwrap();
         assert_eq!(unknown, vec![(3, 4)]);
         assert_eq!(tiles[0].alpha, vec![1, 2, 3, 4]);
-        assert_eq!((tiles[1].x, tiles[1].alpha.clone()), (256, vec![0; 4]));
-        assert!(mask_tiles(&p, 0).is_err());
+        // (an unknown size holds no alpha: 0 over its rectangle)
+        assert_eq!((tiles[1].x, tiles[1].w, tiles[1].alpha.clone()), (256, 2, vec![]));
+        assert!(mask_tiles(&p, 0, 512, 256).is_err());
         let odd = payload(&[record(0, 2, 4, 4, Some(&[0xFF, 0xFF]))]);
-        assert!(mask_tiles(&odd, 1).is_err());
+        assert!(mask_tiles(&odd, 1, 4, 4).is_err());
         // An empty tile unpacks nothing, whatever its width.
-        let (tiles, _) = mask_tiles(&payload(&[record(0, 0, 12, 0, Some(&[]))]), 1).unwrap();
+        let (tiles, _) = mask_tiles(&payload(&[record(0, 0, 12, 0, Some(&[]))]), 1, 12, 1).unwrap();
         assert!(tiles[0].alpha.is_empty());
+    }
+
+    /// A 100-byte mask tile of an unknown size declaring 2^30 x 2^30 pixels:
+    /// warned about and held as nothing, not allocated (2^60 bytes).
+    #[test]
+    fn a_mask_tile_of_an_unknown_size_declaring_exabytes_is_not_allocated() {
+        let p = payload(&[record(0, 0, 1 << 30, 1 << 30, Some(&[]))]);
+        let (tiles, unknown) = mask_tiles(&p, 1, 256, 256).unwrap();
+        assert_eq!(unknown, vec![(0, 1 << 60)]);
+        assert!(tiles[0].alpha.is_empty());
+        // and known tiles repeated over the mask more than twice are refused
+        let many = payload(&vec![record(0, 4, 2, 2, Some(&[1, 2, 3, 4])); 1 << 16]);
+        assert!(mask_tiles(&many, 1, 256, 256).err().expect("refused").contains("more than twice"));
     }
 
     #[test]
