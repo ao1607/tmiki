@@ -187,6 +187,47 @@ impl Repo {
         Ok(reachable)
     }
 
+    /// The objects `roots` reach (by `refs_in`, the links `gc` keeps), that
+    /// are in the store: what a push of `roots` must send. Only commits,
+    /// trees, tags and chunk manifests are read; blobs are known by their
+    /// type header. Objects nothing pushed reaches (other branches, stashes,
+    /// files added and never committed) stay here.
+    pub fn closure(&self, roots: &[String]) -> Result<HashSet<String>> {
+        use rayon::prelude::*;
+        let mut found: HashSet<String> = HashSet::new();
+        let mut frontier: Vec<String> = roots.iter().filter(|r| !r.is_empty()).cloned().collect();
+        while !frontier.is_empty() {
+            frontier.retain(|o| found.insert(o.clone()));
+            let store = &self.store;
+            let read: Vec<std::result::Result<Vec<String>, String>> = frontier
+                .par_iter()
+                .map(|oid| {
+                    let object_type = match store.peek_type(oid) {
+                        Ok(t) => t,
+                        Err(StoreError::Missing(_)) => return Err(oid.clone()),
+                        Err(_) => return Ok(Vec::new()), // damaged: sent as it is, as before
+                    };
+                    if !tmi_store::limits::JSON_TYPES.contains(&object_type.as_str()) {
+                        return Ok(Vec::new());
+                    }
+                    Ok(store.read_json(oid, None).map(|obj| refs_in(&object_type, &obj)).unwrap_or_default())
+                })
+                .collect();
+            let mut next = Vec::new();
+            for r in read {
+                match r {
+                    Ok(refs) => next.extend(refs.into_iter().filter(|o| !found.contains(o))),
+                    // not here (the remote has it, or it never was): nothing to send
+                    Err(missing) => {
+                        found.remove(&missing);
+                    }
+                }
+            }
+            frontier = next;
+        }
+        Ok(found)
+    }
+
     /// `gc(prune_age_days)`.
     pub fn gc(&self, prune_age_days: i64) -> Result<GcResult> {
         let plan = reflog::plan_prune(&self.repo_dir, prune_age_days)?;

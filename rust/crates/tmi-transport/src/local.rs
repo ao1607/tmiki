@@ -90,11 +90,11 @@ impl LocalRemote {
     }
 
     pub fn pull_objects(&self, into: &ObjectStore, progress: Progress) -> Result<usize> {
-        copy_missing(into, &self.repo.store, progress)
+        copy_missing(into, &self.repo.store, None, progress)
     }
 
-    pub fn push_objects(&self, from: &ObjectStore, progress: Progress) -> Result<usize> {
-        copy_missing(&self.repo.store, from, progress)
+    pub fn push_objects(&self, from: &ObjectStore, wanted: &crate::Wanted, progress: Progress) -> Result<usize> {
+        copy_missing(&self.repo.store, from, Some(wanted), progress)
     }
 
     pub fn update_ref(&self, name: &str, value: &str, expect: Expect<'_>) -> Result<Updated> {
@@ -129,19 +129,24 @@ const ROUND: usize = 256;
 /// `dst` lacks, in oid order, each checked (`write_raw`) before it lands.
 /// Objects are read and checked in parallel; when one fails, exactly the
 /// ones before it (in oid order) are stored, as Python's loop leaves it.
-pub fn copy_missing(dst: &ObjectStore, src: &ObjectStore, progress: Progress) -> Result<usize> {
+/// `only`: the objects to consider (a push's closure), else all of `src`.
+pub fn copy_missing(dst: &ObjectStore, src: &ObjectStore, only: Option<&crate::Wanted>, progress: Progress) -> Result<usize> {
     progress("enumerating remote objects");
-    let oids = src.iter_object_ids();
+    let mut oids = src.iter_object_ids();
+    if let Some(only) = only {
+        oids.retain(|o| only.contains(o));
+    }
     let total = oids.len();
     let missing: Vec<(usize, &String)> =
-        oids.iter().enumerate().filter(|(_, oid)| !dst.path_for(oid).exists()).collect();
+        oids.iter().enumerate().filter(|(_, oid)| !dst.exists(oid)).collect();
     let mut copied = 0usize;
     for round in missing.chunks(ROUND) {
         let checked: Vec<std::result::Result<Vec<u8>, RepoError>> = round
             .par_iter()
             .map(|(_, oid)| {
                 let path = src.path_for(oid);
-                let raw = std::fs::read(&path).map_err(|e| RepoError::runtime(read_error(&path, &e)))?;
+                // a planted file larger than any object is refused unread
+                let raw = tmi_store::store::read_object_file(&path).map_err(|e| RepoError::runtime(read_error(&path, &e)))?;
                 rawobj::verify(oid, &raw).map_err(|e| {
                     if e.starts_with(rawobj::REFUSED_TREE) {
                         RepoError::runtime(e)

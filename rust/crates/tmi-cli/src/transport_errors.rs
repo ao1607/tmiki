@@ -99,6 +99,8 @@ fn is_zip_error(msg: &str) -> bool {
     ) || msg.starts_with("Error -3 while decompressing data")
         || msg.starts_with("compression type ")
         || msg.starts_with("Bad CRC-32 for file ")
+        || msg.starts_with("Bad size for file ")
+        || msg.starts_with("Bad size or offset for file ")
         || (msg.starts_with("File '") && msg.ends_with(" is encrypted, password required for extraction"))
 }
 

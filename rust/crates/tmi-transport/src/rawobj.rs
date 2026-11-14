@@ -111,6 +111,11 @@ pub fn py_inflate(raw: &[u8], mut sink: impl FnMut(&[u8]) -> Result<(), String>)
 /// and (trees) an invalid path are refused before anything is stored.
 pub fn verify(oid: &str, raw: &[u8]) -> Result<(), String> {
     let corrupt = |e: String| format!("corrupt object data for {oid}: {e}");
+    // the store reads no file larger than this (bytes after the zlib stream
+    // are ignored, so a short object could otherwise carry gigabytes)
+    if raw.len() as u64 > tmi_store::store::MAX_OBJECT_FILE {
+        return Err(corrupt(format!("{} bytes is larger than any object", raw.len())));
+    }
     let mut inflating = Inflating::default();
     py_inflate(raw, |piece| inflating.feed(piece)).map_err(corrupt)?;
     let Some(object_type) = inflating.object_type.take() else {

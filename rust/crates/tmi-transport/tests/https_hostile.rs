@@ -123,6 +123,7 @@ fn endless(stream: &mut TcpStream, status: &str, prefix: &[u8], fill: u8, total:
 
 const ENV_NAMES: &[&str] = &[
     "TMIHUB_TOKEN",
+    "TMIHUB_HOST",
     "TMIHUB_TIMEOUT",
     "TMIHUB_MAX_REPLY_BYTES",
     "TMIHUB_MAX_DOWNLOAD_BYTES",
@@ -187,7 +188,8 @@ fn a_redirect_is_not_followed_and_the_token_stays_home() {
     let hub = serve("127.0.0.1", move |s, _, _| {
         let _ = write!(s, "HTTP/1.1 302 Found\r\nLocation: {to}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     });
-    let err = with_env(&[("TMIHUB_TOKEN", "s3cret")], None, || refs_err(&hub.url("127.0.0.1")));
+    let bound = format!("127.0.0.1:{}", hub.port);
+    let err = with_env(&[("TMIHUB_TOKEN", "s3cret"), ("TMIHUB_HOST", &bound)], None, || refs_err(&hub.url("127.0.0.1")));
     assert!(err.contains("redirect (302)") && err.contains("does not follow redirects"), "{err}");
     assert!(err.contains(&format!("127.0.0.1:{}", target.port)), "{err}");
     assert!(hub.heads().iter().all(|h| h.contains("Authorization: Bearer s3cret")), "the hub itself gets the token");
@@ -198,7 +200,8 @@ fn a_redirect_is_not_followed_and_the_token_stays_home() {
 fn the_token_is_not_sent_over_plain_http_to_another_machine() {
     // 127.0.0.2 is this machine, but not the loopback names tmi trusts
     let hub = serve("127.0.0.2", |s, _, _| json_reply(s, "200 OK", r#"{"refs":{}}"#));
-    let err = with_env(&[("TMIHUB_TOKEN", "s3cret")], None, || refs_err(&hub.url("127.0.0.2")));
+    let bound = format!("127.0.0.2:{}", hub.port);
+    let err = with_env(&[("TMIHUB_TOKEN", "s3cret"), ("TMIHUB_HOST", &bound)], None, || refs_err(&hub.url("127.0.0.2")));
     assert!(err.contains("refusing to send the tmihub token over plain http to 127.0.0.2"), "{err}");
     assert!(hub.heads().is_empty(), "something was sent: {:?}", hub.heads());
     // no token: an anonymous read over http is fine
@@ -210,9 +213,58 @@ fn the_token_is_not_sent_over_plain_http_to_another_machine() {
 #[test]
 fn the_token_still_goes_to_the_loopback_hub_it_was_set_for() {
     let hub = serve("127.0.0.1", |s, _, _| json_reply(s, "200 OK", r#"{"refs":{}}"#));
-    with_env(&[("TMIHUB_TOKEN", "s3cret")], None, || HttpsRemote::new(&hub.url("127.0.0.1")).unwrap().list_refs().unwrap());
+    let bound = format!("http://127.0.0.1:{}", hub.port);
+    with_env(&[("TMIHUB_TOKEN", "s3cret"), ("TMIHUB_HOST", &bound)], None, || {
+        HttpsRemote::new(&hub.url("127.0.0.1")).unwrap().list_refs().unwrap()
+    });
     assert!(hub.heads().iter().all(|h| h.contains("Authorization: Bearer s3cret")), "{:?}", hub.heads());
     assert!(!hub.heads().is_empty());
+}
+
+#[test]
+fn the_token_is_not_sent_to_a_host_it_was_not_set_for() {
+    let hub = serve("127.0.0.1", |s, line, _| {
+        if line.contains("/head ") {
+            json_reply(s, "401 Unauthorized", r#"{"error":"login"}"#)
+        } else {
+            json_reply(s, "200 OK", r#"{"refs":{}}"#)
+        }
+    });
+    // a token for another hub, and a token with no hub named
+    for host in [Some("hub.example"), None] {
+        let mut vars = vec![("TMIHUB_TOKEN", "s3cret")];
+        vars.extend(host.map(|h| ("TMIHUB_HOST", h)));
+        let remote = with_env(&vars, None, || HttpsRemote::new(&hub.url("127.0.0.1")).unwrap());
+        assert!(remote.list_refs().unwrap().is_empty());
+        assert!(remote.head_branch().unwrap().is_none());
+    }
+    assert!(!hub.heads().is_empty());
+    assert!(hub.heads().iter().all(|h| !h.contains("s3cret")), "{:?}", hub.heads());
+    // the refusal says how to bind it
+    let hub401 = serve("127.0.0.1", |s, _, _| json_reply(s, "401 Unauthorized", r#"{"error":"login"}"#));
+    let err = with_env(&[("TMIHUB_TOKEN", "s3cret")], None, || refs_err(&hub401.url("127.0.0.1")));
+    assert!(err.contains("not for 127.0.0.1:") && err.contains("tmihub.host"), "{err}");
+}
+
+#[test]
+fn listed_ids_naming_local_paths_or_shares_are_not_probed() {
+    let marker = scratch("probe").join("secret.txt");
+    std::fs::write(&marker, b"x").unwrap();
+    let ids = [format!("ab{}", marker.display()), format!("ab{}", marker.with_extension("absent").display())];
+    let body = format!(r#"{{"oids":[{}]}}"#, ids.iter().map(|i| json_str(i)).collect::<Vec<_>>().join(","));
+    let hub = serve("127.0.0.1", move |s, _, _| json_reply(s, "200 OK", &body));
+    let case = scratch("probe-repo");
+    let repo = ops::create(&case.join("repo"), false).unwrap();
+    let got = with_env(&[], None, || HttpsRemote::new(&hub.url("127.0.0.1")).unwrap().pull_objects(&repo.store, &|_: &str| {}));
+    assert_eq!(got.unwrap(), 0);
+    // neither id was asked for: one that exists here would otherwise be left
+    // out of the download request and one that does not would be in it
+    assert!(hub.heads().iter().all(|h| !h.contains("objects/download")), "{:?}", hub.heads());
+    let _ = std::fs::remove_dir_all(&case);
+}
+
+fn json_str(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 #[test]

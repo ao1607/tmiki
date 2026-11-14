@@ -8,9 +8,9 @@ use crate::oid::object_id;
 use crate::zlib;
 use rayon::prelude::*;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 const SAMPLE_SIZE: usize = 64 * 1024;
@@ -18,6 +18,11 @@ const SAMPLE_COUNT: usize = 3;
 const COMPRESS_IF_RATIO_BELOW: f64 = 0.9;
 /// objects.py `CHUNKED_MIN_SIZE`.
 pub const CHUNKED_MIN_SIZE: usize = 1024 * 1024;
+/// What `path_for` answers for an id that is not one: a name no object has.
+const INVALID_ID_FILE: &str = "not-an-object-id";
+/// The most an object file may hold on disk: a blob at its cap stored
+/// uncompressed, plus zlib's framing.
+pub const MAX_OBJECT_FILE: u64 = limits::MAX_BLOB_SIZE as u64 + (1 << 20);
 
 #[derive(Debug)]
 pub enum StoreError {
@@ -80,24 +85,42 @@ impl ObjectStore {
         ObjectStore { objects_dir: objects_dir.into() }
     }
 
+    /// The file of object `oid`. An id that is not 64 lower-case hex digits
+    /// (one a server listed, a commit's parent, a tree entry: data other
+    /// people write) names no file: joined as it is, `ab\\host\share\x` or
+    /// `abC:\x` would replace the objects directory and reach a network share
+    /// (Windows sends the user's NTLM hash) or probe any local path.
     pub fn path_for(&self, oid: &str) -> PathBuf {
-        let split = oid.char_indices().nth(2).map_or(oid.len(), |(i, _)| i);
-        self.objects_dir.join(&oid[..split]).join(&oid[split..])
+        if !limits::is_oid(oid) {
+            return self.objects_dir.join(INVALID_ID_FILE);
+        }
+        self.objects_dir.join(&oid[..2]).join(&oid[2..])
     }
 
     pub fn exists(&self, oid: &str) -> bool {
-        self.path_for(oid).exists()
+        limits::is_oid(oid) && self.path_for(oid).exists()
     }
 
     /// `read(oid)`: (type, payload), verified against the oid.
     pub fn read(&self, oid: &str) -> Result<(String, Vec<u8>)> {
+        self.read_capped(oid, None)
+    }
+
+    /// `read`, inflating at most what `budget` still holds (see
+    /// `limits::decompress_object_capped`).
+    fn read_capped(&self, oid: &str, budget: Option<&AtomicI64>) -> Result<(String, Vec<u8>)> {
+        if !limits::is_oid(oid) {
+            return Err(StoreError::Missing(oid.to_string()));
+        }
         let path = self.path_for(oid);
-        let raw = match fs::read(&path) {
+        let raw = match read_object_file(&path) {
             Ok(raw) => raw,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(StoreError::Missing(oid.to_string())),
             Err(e) => return Err(StoreError::Other(format!("{}: {e}", path.display()))),
         };
-        let data = limits::decompress_object(&raw).map_err(|e| StoreError::Other(format!("Error decompressing {oid}: {e}")))?;
+        let mut data = limits::decompress_object_capped(&raw, budget)
+            .map_err(|e| StoreError::Other(format!("Error decompressing {oid}: {e}")))?;
+        drop(raw);
         let nul = data
             .iter()
             .position(|&b| b == 0)
@@ -107,12 +130,32 @@ impl ObjectStore {
             .filter(|t| t.is_ascii())
             .ok_or_else(|| StoreError::Other(format!("object {oid} has a non-ASCII type")))?
             .to_string();
-        let payload = data[nul + 1..].to_vec();
+        data.drain(..=nul);
+        let payload = data;
         let actual = object_id(&object_type, &payload);
         if actual != oid {
             return Err(StoreError::HashMismatch { oid: oid.to_string(), actual });
         }
         Ok((object_type, payload))
+    }
+
+    /// The object's type from the start of its file alone (not verified:
+    /// for walking one's own store without inflating every blob).
+    pub fn peek_type(&self, oid: &str) -> Result<String> {
+        if !limits::is_oid(oid) {
+            return Err(StoreError::Missing(oid.to_string()));
+        }
+        let path = self.path_for(oid);
+        let file = match fs::File::open(&path) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(StoreError::Missing(oid.to_string())),
+            Err(e) => return Err(StoreError::Other(format!("{}: {e}", path.display()))),
+        };
+        let mut head = Vec::new();
+        let decoder = flate2::read::ZlibDecoder::new(std::io::BufReader::new(file));
+        let _ = decoder.take(limits::MAX_TYPE_LENGTH as u64 + 1).read_to_end(&mut head);
+        let nul = head.iter().position(|&b| b == 0).ok_or_else(|| StoreError::Other(format!("object {oid} has no type header")))?;
+        Ok(String::from_utf8_lossy(&head[..nul]).into_owned())
     }
 
     /// The object's type without keeping its payload (still verified).
@@ -152,8 +195,8 @@ impl ObjectStore {
     }
 
     /// A plain blob (a chunked part or glue): a chunked object here is refused.
-    fn read_plain_blob(&self, oid: &str) -> Result<Vec<u8>> {
-        let (object_type, payload) = self.read(oid)?;
+    fn read_plain_blob(&self, oid: &str, budget: &AtomicI64) -> Result<Vec<u8>> {
+        let (object_type, payload) = self.read_capped(oid, Some(budget))?;
         if object_type != "blob" {
             return Err(StoreError::WrongType { oid: oid.to_string(), actual: object_type, expected: "blob".into() });
         }
@@ -166,31 +209,38 @@ impl ObjectStore {
             .map_err(|why| StoreError::Other(format!("chunked object {oid} has a malformed manifest: {why}")))?;
         let size = manifest.get("size").and_then(Value::as_i64).ok_or_else(bad)?;
         let parts = manifest.get("parts").and_then(Value::as_array).ok_or_else(bad)?;
+        let too_big = || StoreError::BadChunked(format!("chunked object {oid} reassembles to more than {size} bytes"));
+        let over = |e: StoreError| match e {
+            StoreError::Other(m) if m.ends_with(limits::OVER_BUDGET) => too_big(),
+            e => e,
+        };
+        let refs: Vec<&str> = parts.iter().filter_map(Value::as_str).collect();
+        // Everything inflated for this blob (glue, parts, their type headers)
+        // draws on one budget of its declared size, also while parts are read
+        // in parallel: a manifest that repeats one large part, or lists far
+        // more than it declares, stops after inflating about its size.
+        let header = (limits::MAX_TYPE_LENGTH + 1) as i64;
+        let budget = AtomicI64::new(size + (refs.len() as i64 + 1) * header);
         let glue = match manifest.get("glue") {
-            Some(g) if g.truthy() => self.read_plain_blob(g.as_str().ok_or_else(bad)?)?,
+            Some(g) if g.truthy() => self.read_plain_blob(g.as_str().ok_or_else(bad)?, &budget).map_err(over)?,
             _ => Vec::new(),
         };
-        // The parts are read a few at a time and the running total is held to
-        // the declared size, so a manifest that repeats a part or lists far
-        // more than it declares stops early.
-        let refs: Vec<&str> = parts.iter().filter_map(Value::as_str).collect();
         let mut read: Vec<Vec<u8>> = Vec::with_capacity(refs.len());
-        let mut total: i64 = 0;
+        let mut total: i64 = glue.len() as i64;
         for batch in refs.chunks(16) {
-            let batch_pieces: Vec<Result<Vec<u8>>> = batch.par_iter().map(|r| self.read_plain_blob(r)).collect();
+            let batch_pieces: Vec<Result<Vec<u8>>> = batch.par_iter().map(|r| self.read_plain_blob(r, &budget)).collect();
             for piece in batch_pieces {
-                let piece = piece?;
+                let piece = piece.map_err(over)?;
                 total += piece.len() as i64;
                 if total > size {
-                    return Err(StoreError::BadChunked(format!(
-                        "chunked object {oid} reassembles to more than {size} bytes"
-                    )));
+                    return Err(too_big());
                 }
                 read.push(piece);
             }
         }
         let mut pieces = read.into_iter().map(Ok::<Vec<u8>, StoreError>);
-        let mut out = Vec::with_capacity(size as usize);
+        // sized from what was read, not from the declaration alone
+        let mut out = Vec::with_capacity(total.min(size) as usize);
         let mut pos = 0usize;
         for part in parts {
             match part {
@@ -394,14 +444,35 @@ impl ObjectStore {
             let Ok(files) = fs::read_dir(sub.path()) else { continue };
             for f in files.flatten() {
                 let fname = f.file_name().to_string_lossy().into_owned();
-                if fname.chars().count() == 62 && f.path().is_file() {
-                    ids.push(format!("{name}{fname}"));
+                let oid = format!("{name}{fname}");
+                // only real ids: `path_for` names no file for anything else
+                if limits::is_oid(&oid) && f.path().is_file() {
+                    ids.push(oid);
                 }
             }
         }
         ids.sort();
         ids
     }
+}
+
+/// An object file's bytes, refused before reading when it is larger than any
+/// object can be (a file planted in a remote or a store is read whole).
+pub fn read_object_file(path: &Path) -> std::io::Result<Vec<u8>> {
+    let mut file = fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    if len > MAX_OBJECT_FILE {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("object file of {len} bytes is larger than any object ({MAX_OBJECT_FILE})"),
+        ));
+    }
+    let mut raw = Vec::with_capacity(len as usize);
+    std::io::Read::take(&mut file, MAX_OBJECT_FILE + 1).read_to_end(&mut raw)?;
+    if raw.len() as u64 > MAX_OBJECT_FILE {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "object file grew while it was read"));
+    }
+    Ok(raw)
 }
 
 fn random_suffix() -> String {
