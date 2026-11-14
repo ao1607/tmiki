@@ -176,7 +176,7 @@ pub fn replace_layer_pixels(doc: &Mdp2, raw: &[u8], index: usize, image: &[u8], 
     if !writable(&layer.kind) {
         return Err(format!("MDP2 write-back not supported for layer type {:?}", layer.kind));
     }
-    if image.len() != w * h * 4 {
+    if w.checked_mul(h).and_then(|n| n.checked_mul(4)) != Some(image.len()) {
         return Err("RGBA bytes do not match the size".into());
     }
     if w as i64 > layer.width || h as i64 > layer.height {
@@ -190,6 +190,11 @@ pub fn replace_layer_pixels(doc: &Mdp2, raw: &[u8], index: usize, image: &[u8], 
         return Err("Python int too large to convert to C int".into());
     }
     let (lw, lh) = (layer.width as usize, layer.height as usize);
+    // the layer-sized image is made whole: a declared size past what memory
+    // holds is refused (the caller holds it to the pixel limit)
+    if (lw as u128) * (lh as u128) * 4 > isize::MAX as u128 {
+        return Err(format!("MDP2 layer of {lw}x{lh} pixels is too large to write back"));
+    }
     let padded;
     let image = if (w, h) == (lw, lh) {
         image

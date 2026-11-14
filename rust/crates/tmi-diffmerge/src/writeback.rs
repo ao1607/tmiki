@@ -193,6 +193,12 @@ fn clip_replace(ctx: &mut WriteCtx, raw: &[u8], selector: &str, png_bytes: &[u8]
     if attr.channel_profile != "color-alpha-bgra" {
         return Err(value_err(format!("CLIP write-back supports color raster layers only, got {}", attr.channel_profile)));
     }
+    // The write-back holds the whole offscreen (twice): its declared size is
+    // held to the limit and to its canvas, as the import holds it.
+    ctx.limits.check_layered(attr.pixel_width as i64, attr.pixel_height as i64).map_err(value_err)?;
+    if let Some(why) = tmi_clip::tiles::offscreen_oversize(attr.pixel_width, attr.pixel_height, file.width.max(0) as usize, file.height.max(0) as usize) {
+        return Err(value_err(why));
+    }
     let image = pix::pixels_from_bytes(png_bytes, &ctx.limits)?;
     let (w, h) = image.size();
     if w > attr.pixel_width || h > attr.pixel_height {
@@ -232,6 +238,8 @@ fn mdp2_replace(ctx: &mut WriteCtx, raw: &[u8], selector: &str, png_bytes: &[u8]
     if !layer.big.is_empty() {
         return Err(fwd("MDP2 layer fields past i64"));
     }
+    // the layer-sized image is made whole: its declared size is held to the limit
+    ctx.limits.check_layered(layer.width, layer.height).map_err(value_err)?;
     let image = pix::pixels_from_bytes(png_bytes, &ctx.limits)?;
     let (w, h) = image.size();
     if w as i64 > layer.width || h as i64 > layer.height {
@@ -783,4 +791,26 @@ fn write_jpeg_full(
 /// What `Px` holds, for callers.
 pub fn dense_of(px: Px) -> tmi_import::Rgba {
     px.into_dense()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tmi_clip::testing::{exta_payload, minimal_clip, offscreen_attribute, outer_id, raster_layer_sql};
+
+    /// A layer whose offscreen declares 100000 x 100000 (40 GB made whole
+    /// by the write-back) on a 13000 x 13000 canvas, within the 64 canvases
+    /// an offscreen may be: a merge writing one pixel into it is refused on
+    /// the pixel limit before anything is allocated.
+    #[test]
+    fn a_write_back_into_an_offscreen_declaring_ten_gigapixels_is_refused() {
+        let outer = outer_id(1);
+        let attr = offscreen_attribute(100_000, 100_000, 391, 391);
+        let raw = minimal_clip(13000, 13000, &raster_layer_sql(2, 0, &outer, &attr), vec![exta_payload(&outer, &[])]).unwrap();
+        let blob = tmi_codec::layer_blob::encode(&[255, 0, 0, 255], 1, 1, 1, 1, 0, 0).unwrap();
+        let mut warns = Warnings::default();
+        let mut ctx = WriteCtx { limits: Limits { layered: 178_956_970, raster: 178_956_970 }, warns: &mut warns };
+        let e = replace_layer_pixels(&mut ctx, "x.clip", Some(&raw), "clip", "clip:2", &blob, false).err().expect("refused");
+        assert!(format!("{e:?}").contains("maxImagePixels"), "{e:?}");
+    }
 }

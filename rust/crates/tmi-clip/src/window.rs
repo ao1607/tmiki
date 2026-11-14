@@ -106,7 +106,8 @@ fn utf16_ok(name: &[u8]) -> bool {
 ///
 /// A tile of an unknown size holds no alpha (`alpha` is empty: 0 over its
 /// rectangle), and the tiles kept are held to twice the 256-pixel cells of
-/// the `pixel_w` x `pixel_h` offscreen (CSP writes one tile a cell).
+/// the `pixel_w` x `pixel_h` offscreen and a row and a column more (CSP
+/// writes one tile a cell).
 pub fn mask_tiles(payload: &[u8], tile_cols: usize, pixel_w: usize, pixel_h: usize) -> Result<(Vec<MaskTile>, Vec<(usize, usize)>), String> {
     mask_tiles_opt(payload, tile_cols, pixel_w, pixel_h).ok_or_else(|| "malformed mask tiles".to_string())?
 }
@@ -153,7 +154,9 @@ fn mask_tiles_opt(payload: &[u8], tile_cols: usize, pixel_w: usize, pixel_h: usi
     if tile_cols == 0 {
         return Some(Err("tiles but no tile columns (ZeroDivisionError)".into()));
     }
-    let cells = |n: usize| n.div_ceil(TILE_SIZE) as u128 * TILE_SIZE as u128;
+    // (a grid may have a column and a row more than the offscreen needs,
+    // research/clip-format.md §3.2)
+    let cells = |n: usize| (n.div_ceil(TILE_SIZE) as u128 + 1) * TILE_SIZE as u128;
     let held: u128 = raw
         .iter()
         .filter(|&&(_, bpt, tw, th, _)| tw.checked_mul(th).is_some_and(|px| tile_kind(bpt, px).is_some()))
@@ -231,7 +234,7 @@ mod tests {
         assert_eq!(unknown, vec![(0, 1 << 60)]);
         assert!(tiles[0].alpha.is_empty());
         // and known tiles repeated over the mask more than twice are refused
-        let many = payload(&vec![record(0, 4, 2, 2, Some(&[1, 2, 3, 4])); 1 << 16]);
+        let many = payload(&vec![record(0, 256, 16, 16, Some(&[7; 256])); 1 << 12]);
         assert!(mask_tiles(&many, 1, 256, 256).err().expect("refused").contains("more than twice"));
     }
 

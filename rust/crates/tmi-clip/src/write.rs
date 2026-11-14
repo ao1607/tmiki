@@ -354,11 +354,21 @@ pub fn replace_layer_pixels(
     let exta: &Chunk = extas.get(outer_id.as_bytes()).ok_or("CLIP layer has no backed Exta payload")?;
     let attr = parse_offscreen_attribute(attr_blob)?;
     let (pw, ph) = (attr.pixel_width, attr.pixel_height);
-    if image.len() != w * h * 4 {
+    if w.checked_mul(h).and_then(|n| n.checked_mul(4)) != Some(image.len()) {
         return Err("RGBA bytes do not match the size".into());
     }
     if w > pw || h > ph {
         return Err(format!("replacement image {w}x{h} is larger than layer offscreen {pw}x{ph}"));
+    }
+    // The offscreen is made whole (and its current pixels too), and every
+    // block of its grid is written: a declared size that does not fit
+    // memory, or a grid more than two blocks wider or taller than the
+    // offscreen's 256-pixel cells (CSP's is at most one more,
+    // research/clip-format.md §3.2), is refused.
+    let too_large = || format!("CLIP offscreen of {pw}x{ph} pixels in a {}x{} grid is too large to write back", attr.tile_cols, attr.tile_rows);
+    pw.checked_mul(ph).and_then(|n| n.checked_mul(4)).filter(|&n| n <= isize::MAX as usize).ok_or_else(too_large)?;
+    if attr.tile_cols > pw.div_ceil(TILE) + 2 || attr.tile_rows > ph.div_ceil(TILE) + 2 {
+        return Err(too_large());
     }
     // `padded.alpha_composite(image)`: alpha 0 becomes (0, 0, 0, 0).
     let padded;
@@ -366,7 +376,7 @@ pub fn replace_layer_pixels(
         image
     } else {
         let mut p = vec![0u8; pw * ph * 4];
-        p.par_chunks_mut(pw * 4).take(h).enumerate().for_each(|(y, row)| {
+        p.par_chunks_mut((pw * 4).max(1)).take(h).enumerate().for_each(|(y, row)| {
             for x in 0..w {
                 over_pixel(&mut row[x * 4..x * 4 + 4], &image[(y * w + x) * 4..(y * w + x) * 4 + 4]);
             }
