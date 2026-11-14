@@ -13,8 +13,8 @@ rusqlite = { version = "0.40.2", features = ["bundled", "serialize", "backup"] }
 tmi-pillow.workspace = true
 tmi-numpy.workspace = true
 roxmltree = "0.20"
-# Stock zlib 1.3.1 (libz-sys 1.1.24 is the last release bundling it), the
-# zlib CPython 3.13's `zlib` module carries: write-back compresses tiles at
-# level 6 with it so the bytes equal Python's `zlib.compress`.
-libz-sys = { version = "=1.1.24", default-features = false, features = ["stock-zlib", "static"] }
+# Stock zlib 1.3.2 (libz-sys 1.1.31, for 1.3.2's fixes; CPython 3.13's `zlib`
+# module carries 1.3.1, whose deflate output 1.3.2 keeps): write-back
+# compresses tiles at level 6 with it so the bytes equal Python's `zlib.compress`.
+libz-sys = { version = "=1.1.31", default-features = false, features = ["stock-zlib", "static"] }
 libc = "0.2"
