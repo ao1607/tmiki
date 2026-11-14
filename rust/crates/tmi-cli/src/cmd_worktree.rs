@@ -389,6 +389,8 @@ pub fn mv(argv: &[String], out: &mut Out) -> CmdResult {
         return Err(RepoError::runtime(format!("destination is outside working tree: {}", dst.display())));
     }
     let dst_rel = repo.relpath(&dst)?;
+    // refused before anything moves (`.tmi/hooks/x.bat` is no place for it)
+    tmi_repo::recpath::check_new_record_path(&dst_rel)?;
     let same_file = dst.exists() && tmi_repo::write::samefile(&src, &dst).unwrap_or(false);
     if dst.exists() && !same_file {
         if !force {
@@ -423,8 +425,9 @@ pub fn mv(argv: &[String], out: &mut Out) -> CmdResult {
     tmi_repo::fsio::replace(&src, &dst)?;
     stager.stage_delete(&src_rel);
     let staged = stager.stage_file(&dst.to_string_lossy(), true, None);
-    if let Err(RepoError::Forward(why)) = staged {
-        // Put everything back: the command goes to Python whole.
+    if let Err(e) = staged {
+        // Put everything back: a refused move leaves both files as they were
+        // (and a forwarded one goes to Python whole).
         std::fs::rename(&dst, &src).map_err(|e| RepoError::runtime(format!("{}: {e}", dst.display())))?;
         if let Some(aside) = &displaced {
             std::fs::rename(aside, &dst).map_err(|e| RepoError::runtime(format!("{}: {e}", aside.display())))?;
@@ -434,15 +437,18 @@ pub fn mv(argv: &[String], out: &mut Out) -> CmdResult {
                 repo.remove_empty_parent_dirs(parent)?;
             }
         }
-        tmi_repo::fsio::unmark_mutated();
-        return Err(RepoError::Forward(why));
+        if e.is_forward() {
+            tmi_repo::fsio::unmark_mutated();
+        } else {
+            crate::cmd_add::emit_warnings(&mut stager, out);
+        }
+        return Err(e);
     }
     if let Some(aside) = &displaced {
         tmi_repo::fsio::unlink(aside)?;
     }
     crate::cmd_add::emit_warnings(&mut stager, out);
     stager.finish()?;
-    staged?;
     out.println(format!("renamed {src_rel} -> {dst_rel}"));
     Ok(0)
 }

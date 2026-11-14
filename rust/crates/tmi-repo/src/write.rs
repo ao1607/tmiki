@@ -391,6 +391,7 @@ impl Repo {
         for rel in entries.keys() {
             crate::recpath::check_record_path(rel)?;
         }
+        check_paths_fit_together(entries.keys().map(String::as_str))?;
         Ok(entries)
     }
 
@@ -674,6 +675,36 @@ pub fn object_timestamp() -> Result<String> {
     Ok(crate::clock::isoformat_utc(crate::clock::now()))
 }
 
+/// Paths a tree records that one working tree cannot hold together: two
+/// that differ only in letter case (one file on Windows and macOS, the last
+/// written wins), or a file that is also a directory of another (`a` and
+/// `a/b`: the checkout stops half way, after HEAD has moved). `Err` before
+/// anything is written.
+pub fn check_paths_fit_together<'a>(paths: impl Iterator<Item = &'a str>) -> Result<()> {
+    let mut files: std::collections::HashMap<String, &str> = std::collections::HashMap::new();
+    let paths: Vec<&str> = paths.collect();
+    for rel in &paths {
+        if let Some(other) = files.insert(rel.to_lowercase(), rel) {
+            return Err(RepoError::runtime(crate::recpath::invalid_path_message(
+                rel,
+                &format!("it differs from {} only in letter case", crate::recpath::display_path(other)),
+            )));
+        }
+    }
+    for rel in &paths {
+        let folded = rel.to_lowercase();
+        for (i, _) in folded.match_indices('/') {
+            if let Some(file) = files.get(&folded[..i]) {
+                return Err(RepoError::runtime(crate::recpath::invalid_path_message(
+                    rel,
+                    &format!("{} is a file in the same tree", crate::recpath::display_path(file)),
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// `index.get("entries", {})` of a read index.
 pub fn entries_of(index: &Value) -> Result<Entries> {
     match index.get("entries") {
@@ -738,4 +769,22 @@ pub fn index_diff_to_entries(base: &Entries, target: &Entries) -> Value {
         entries.insert(rel.clone(), after.cloned().unwrap_or_else(|| deleted_entry(rel)));
     }
     obj([("version", int(1)), ("entries", Value::Object(entries))])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A received tree with `a` and `a/b`, or with `A.png` and `a.png`: the
+    /// first stopped a switch / merge / clone half way after HEAD had moved,
+    /// the second wrote one file over the other on Windows.
+    #[test]
+    fn a_tree_with_a_file_inside_a_file_or_case_twins_is_refused_before_checkout() {
+        let check = |paths: &[&str]| check_paths_fit_together(paths.iter().copied());
+        assert!(check(&["a", "a/b"]).is_err());
+        assert!(check(&["Dir/x.png", "dir"]).is_err());
+        assert!(check(&["A.png", "a.png"]).is_err());
+        assert!(check(&["art/É.png", "ART/é.png"]).is_err());
+        assert!(check(&["a.png", "a/b.png", "ab/c.png", "b"]).is_ok());
+    }
 }
