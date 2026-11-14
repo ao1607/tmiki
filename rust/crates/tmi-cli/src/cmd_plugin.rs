@@ -242,6 +242,18 @@ fn list(argv: &[String], out: &mut Out) -> CmdResult {
         let sha = tmi_store::oid::sha256_hex(&bytes);
         let host = formats::host(&repo).map_err(RepoError::runtime)?;
         let cached = host.is_cached(&sha);
+        // a component plugin.trust keeps from running is not loaded to be listed
+        let unrun = trust::Component { id: &id, version: "", sha256: &sha };
+        let held = match trust::setting(&repo)? {
+            trust::Setting::Deny => true,
+            trust::Setting::Prompt => !trust::describe(&repo, &unrun)?.starts_with("trusted"),
+            _ => false,
+        };
+        if held {
+            let state = trust::describe(&repo, &unrun)?;
+            rows.push([id.clone(), "-".into(), "-".into(), patterns, format!("{}...", short(&sha)), "-".into(), state, "not loaded".into()]);
+            continue;
+        }
         match host.load(&bytes) {
             Ok(p) => {
                 let fmts: Vec<String> = p.info.formats.iter().map(|f| f.name.clone()).collect();

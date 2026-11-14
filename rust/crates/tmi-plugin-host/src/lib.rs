@@ -56,7 +56,7 @@ pub mod test_plugins;
 pub use backend::PluginBackend;
 pub use dev::{DevCommand, DevOptions, DevProcessBackend};
 pub use engine::Settings;
-pub use plugin::{Plugin, PluginError, PluginHost, WasmBackend};
+pub use plugin::{is_plugin_id, Plugin, PluginError, PluginHost, WasmBackend};
 pub use reader::{BackendReader, DynReader, WasmReader};
 
 #[cfg(test)]

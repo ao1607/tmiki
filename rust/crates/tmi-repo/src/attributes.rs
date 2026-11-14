@@ -246,7 +246,7 @@ pub fn remove_plugin(text: &str, id: &str) -> (String, Vec<LineChange>) {
 
 /// A plugin id: `[a-z0-9-]{1,40}` (what `info` must say, PLUGINS.md 3.4).
 pub fn valid_id(id: &str) -> bool {
-    (1..=40).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    tmi_plugin_host::is_plugin_id(id)
 }
 
 #[cfg(test)]
@@ -272,6 +272,16 @@ mod tests {
         assert_eq!(a.patterns_for("ora"), vec!["*.ora".to_string()]);
         assert!(Attributes::parse("").lookup("x.ora") == Mapping::BUILTIN);
         assert!(matches!(Attributes::parse("*.x format=plugin:Bad").lookup("a.x").format, Format::Invalid(_)));
+    }
+
+    #[test]
+    fn a_device_name_is_no_plugin_id_so_con_wasm_is_never_opened() {
+        for id in ["con", "nul", "aux", "prn", "com1", "lpt9"] {
+            let a = Attributes::parse(&format!("*.png format=plugin:{id}\n"));
+            assert!(matches!(a.lookup("x.png").format, Format::Invalid(_)), "{id}");
+            assert!(a.plugin_ids().is_empty(), "{id}");
+        }
+        assert!(valid_id("console") && valid_id("com") && valid_id("com10"));
     }
 
     #[test]

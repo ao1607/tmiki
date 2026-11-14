@@ -249,6 +249,52 @@ fn a_database_image_opened_by_a_plugin_may_grow_by_its_budget() {
     assert!(db.execute_batch("CREATE TABLE w AS SELECT zeroblob(1000000) FROM t LIMIT 10").unwrap_err().to_string().contains("full"));
 }
 
+#[test]
+fn a_row_of_many_large_columns_is_refused_and_sqlite_has_a_heap_limit() {
+    use crate::host::{open_database_with, run_query};
+    let db = open_database_with(&[], false, false, 64 << 20).unwrap();
+    // past the column limit the statement does not even prepare
+    let wide = format!("SELECT {}", vec!["1"; 1001].join(","));
+    assert!(run_query(&db, &wide, vec![]).unwrap_err().contains("too many columns"));
+    // the result is refused column by column (300 MB of values over 256 MiB;
+    // each value under the 16 MiB a value of this database may be)
+    let big = format!("SELECT {}", vec!["zeroblob(15000000)"; 20].join(","));
+    let e = run_query(&db, &big, vec![]).unwrap_err();
+    assert!(e.contains("result is over"), "{e}");
+    // a statement's own memory stops at the process's heap limit
+    let limit = unsafe { rusqlite::ffi::sqlite3_hard_heap_limit64(-1) };
+    assert!(limit > 0 && limit <= 8 << 30, "{limit}");
+}
+
+#[test]
+fn a_transform_or_database_image_is_held_to_the_plugins_memory() {
+    use crate::bindings::wit as w;
+    use crate::host::HostState;
+    use crate::bindings::tmi::format::codecs::Host as _;
+    use crate::bindings::tmi::format::sqlite::HostDatabase as _;
+    let mut state = HostState::new(None, 16 << 20);
+    // a zlib bomb of 100 MiB asked for with no limit of its own
+    let bomb = tmi_store::zlib::compress(&vec![0u8; 100 << 20], 9);
+    let r = state.transform(w::Bytes::Inline(bomb), vec![w::Codec::Zlib], u32::MAX).unwrap();
+    assert!(r.is_err(), "a 100 MiB answer for a 16 MiB plugin");
+    // a database image larger than the plugin may hold is not copied
+    let r = state.open(w::Bytes::Inline(vec![0u8; 17 << 20])).unwrap();
+    assert!(r.err().unwrap().contains("memory limit"));
+}
+
+#[test]
+fn a_long_namespace_on_many_elements_is_refused() {
+    // roxmltree keeps the 1 MiB namespace once; the answer copied it per
+    // element: 20,000 elements were 20 GB of host memory
+    let doc = format!("<r xmlns=\"{}\">{}</r>", "u".repeat(1 << 20), "<a/>".repeat(20_000));
+    let t = Instant::now();
+    let err = crate::host::parse_xml(doc.as_bytes()).unwrap_err();
+    assert!(err.contains("parsed XML is over"), "{err}");
+    assert!(t.elapsed() < Duration::from_secs(10));
+    let attrs = format!("<r xmlns:p=\"{}\">{}</r>", "u".repeat(1 << 20), "<a p:x=\"1\"/>".repeat(20_000));
+    assert!(crate::host::parse_xml(attrs.as_bytes()).is_err());
+}
+
 // -- xml ------------------------------------------------------------------------
 
 #[test]

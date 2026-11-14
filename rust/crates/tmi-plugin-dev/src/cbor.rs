@@ -491,7 +491,9 @@ impl Reader<'_> {
             }
             4 => {
                 let n = self.count(info)?;
-                let mut a = Vec::with_capacity(n);
+                // grown as items arrive: a claimed count at every level of nesting
+                // would otherwise be allocated up front, many times the frame
+                let mut a = Vec::with_capacity(n.min(1024));
                 for _ in 0..n {
                     a.push(self.value(depth + 1)?);
                 }
@@ -499,7 +501,7 @@ impl Reader<'_> {
             }
             5 => {
                 let n = self.count(info)?;
-                let mut m = Vec::with_capacity(n);
+                let mut m = Vec::with_capacity(n.min(1024));
                 for _ in 0..n {
                     let k = self.value(depth + 1)?;
                     let v = self.value(depth + 1)?;
@@ -552,6 +554,21 @@ mod tests {
 
     fn hex(b: &[u8]) -> String {
         b.iter().map(|x| format!("{x:02x}")).collect()
+    }
+
+    #[test]
+    fn a_huge_claimed_count_at_every_level_is_not_allocated_up_front() {
+        // 100 arrays, each claiming as many items as bytes are left in the
+        // frame (about 4 MiB): up front that was 100 x 4M x the item's size
+        let mut data = Vec::new();
+        for _ in 0..100 {
+            data.push(0x9a); // array, u32 count
+            data.extend_from_slice(&((4u32 << 20) - 1024).to_be_bytes()); // fewer than are left
+        }
+        data.resize(4 << 20, 0);
+        let t = std::time::Instant::now();
+        assert!(Value::decode(&data).is_err());
+        assert!(t.elapsed() < std::time::Duration::from_secs(5));
     }
 
     #[test]
