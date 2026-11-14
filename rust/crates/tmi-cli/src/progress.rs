@@ -248,6 +248,8 @@ impl Progress {
     /// `progress(msg)`.
     pub fn report(&self, msg: &str) {
         let Some(mode) = self.mode else { return };
+        // messages name paths and layers from the repository: no terminal controls
+        let msg = &tmi_repo::textsafe::escape(msg, false);
         let mut s = self.shared.lock();
         if s.done {
             return;
