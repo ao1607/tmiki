@@ -94,6 +94,60 @@ fn build_dev(m: &Manifest, print: Print) -> Result<(), String> {
     Ok(())
 }
 
+/// The most files and bytes [`consent_digest`] reads.
+const DIGEST_MAX_FILES: usize = 20_000;
+const DIGEST_MAX_BYTES: u64 = 512 << 20;
+
+/// What a consent to build `m.dir` is about: every file cargo could run or
+/// read there (Cargo.toml, Cargo.lock, build.rs, macros, `.cargo/config.toml`,
+/// `rust-toolchain.toml`, path dependencies inside it, the sources), by
+/// relative path and SHA-256, so any change is asked about again. Not
+/// `target/`, `.git/`, the component the build writes or the corpus's
+/// `*.expect.json`. A link is recorded by where it points, not followed.
+pub fn consent_digest(m: &Manifest) -> Result<Vec<u8>, String> {
+    let mut entries: Vec<(String, String)> = Vec::new();
+    let mut bytes = 0u64;
+    let mut stack = vec![m.dir.clone()];
+    while let Some(d) = stack.pop() {
+        let list = std::fs::read_dir(&d).map_err(|e| format!("{}: {e}", d.display()))?;
+        for e in list {
+            let e = e.map_err(|e| format!("{}: {e}", d.display()))?;
+            let path = e.path();
+            let rel = path.strip_prefix(&m.dir).unwrap_or(&path).to_string_lossy().replace('\\', "/");
+            // what tmi writes there itself: the component, `test --update`'s expectations
+            let expectation = path.starts_with(&m.corpus) && rel.ends_with(crate::check::EXPECT_SUFFIX);
+            if rel == "target" || rel == ".git" || path == m.output || expectation {
+                continue;
+            }
+            let ft = e.file_type().map_err(|e| format!("{}: {e}", path.display()))?;
+            let what = if ft.is_symlink() || (!ft.is_dir() && !ft.is_file()) {
+                format!("link {}", std::fs::read_link(&path).map(|t| t.display().to_string()).unwrap_or_default())
+            } else if ft.is_dir() {
+                stack.push(path);
+                continue;
+            } else {
+                let data = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+                bytes += data.len() as u64;
+                tmi_store::oid::sha256_hex(&data)
+            };
+            entries.push((rel, what));
+            if entries.len() > DIGEST_MAX_FILES || bytes > DIGEST_MAX_BYTES {
+                return Err(format!(
+                    "{}: more than {DIGEST_MAX_FILES} files or {} MiB besides target/: too much to vet before building it",
+                    m.dir.display(),
+                    DIGEST_MAX_BYTES >> 20
+                ));
+            }
+        }
+    }
+    entries.sort();
+    let mut out = Vec::new();
+    for (rel, what) in entries {
+        out.extend_from_slice(format!("{rel}\0{what}\n").as_bytes());
+    }
+    Ok(out)
+}
+
 /// Checks a component as `plugin add` will, and says what it is.
 pub fn inspect(bytes: &[u8], settings: Settings, print: Print) -> Result<tmi_plugin_host::Plugin, String> {
     let host = PluginHost::new(settings).map_err(|e| e.to_string())?;
@@ -148,4 +202,34 @@ pub fn run(dir: &Path, settings: Settings, print: Print) -> Result<Built, String
     print(format!("built {rel} ({} bytes, sha256 {})", bytes.len(), plugin.sha256));
     build_dev(&m, print)?;
     Ok(Built { path: m.output.clone(), sha256: plugin.sha256.clone(), id: plugin.info.id.clone(), version: plugin.info.version.clone() })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_consent_to_build_does_not_cover_a_changed_build_script_or_cargo_config() {
+        let dir = std::env::temp_dir().join(format!("tmi-plugin-consent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join(crate::manifest::FILE), "[plugin]\nid = \"x\"\n[build]\noutput = \"x.wasm\"\n").unwrap();
+        std::fs::write(dir.join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
+        std::fs::write(dir.join("src/lib.rs"), "").unwrap();
+        let m = crate::manifest::Manifest::read(&dir).unwrap();
+        let digest = || super::consent_digest(&m).unwrap();
+        let granted = digest();
+        // what the build makes does not count
+        std::fs::create_dir_all(dir.join("target/debug")).unwrap();
+        std::fs::write(dir.join("target/debug/x-dev.exe"), b"built").unwrap();
+        std::fs::write(dir.join("x.wasm"), b"component").unwrap();
+        assert_eq!(digest(), granted);
+        // code cargo runs does
+        std::fs::write(dir.join("build.rs"), "fn main() {}").unwrap();
+        assert_ne!(digest(), granted);
+        std::fs::remove_file(dir.join("build.rs")).unwrap();
+        assert_eq!(digest(), granted);
+        std::fs::create_dir_all(dir.join(".cargo")).unwrap();
+        std::fs::write(dir.join(".cargo/config.toml"), "[build]\nrustc-wrapper = \"evil\"\n").unwrap();
+        assert_ne!(digest(), granted);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

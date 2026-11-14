@@ -27,9 +27,19 @@ pub fn which(name: &str) -> Option<PathBuf> {
     None
 }
 
+/// `program` to ask its version, run away from the current directory:
+/// rustup's proxies read a `rust-toolchain.toml` there (and in its parents),
+/// which in a downloaded plugin directory could name a toolchain `path`
+/// whose `cargo` would run, or one to download, before any consent.
+fn probe(program: &Path) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.current_dir(std::env::temp_dir());
+    cmd
+}
+
 /// The first line a program prints for `args`, if it runs.
 fn version(program: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new(program).args(args).output().ok()?;
+    let out = probe(program).args(args).output().ok()?;
     if !out.status.success() {
         return None;
     }
@@ -46,7 +56,7 @@ pub fn cargo() -> Option<PathBuf> {
 /// (`<sysroot>/lib/rustlib/wasm32-wasip2`: rustup or not).
 pub fn wasip2_target() -> Option<bool> {
     let rustc = std::env::var_os("RUSTC").map(PathBuf::from).or_else(|| which("rustc"))?;
-    let out = Command::new(rustc).args(["--print", "sysroot"]).output().ok()?;
+    let out = probe(&rustc).args(["--print", "sysroot"]).output().ok()?;
     let sysroot = String::from_utf8_lossy(&out.stdout).trim().to_string();
     Some(Path::new(&sysroot).join("lib").join("rustlib").join("wasm32-wasip2").is_dir())
 }
@@ -104,4 +114,14 @@ pub fn run(in_plugin_dir: bool, print: Print) -> i32 {
         print(if code == 0 { "tmiki plugin build has what a plugin needs".to_string() } else { "the plugin's build needs what is missing above".to_string() });
     }
     code
+}
+#[cfg(test)]
+mod tests {
+    /// A downloaded plugin directory's rust-toolchain.toml (a toolchain
+    /// `path` whose cargo would run) is not where the probes start.
+    #[test]
+    fn version_probes_do_not_run_in_the_directory_they_are_asked_about() {
+        let cmd = super::probe(std::path::Path::new("cargo"));
+        assert_eq!(cmd.get_current_dir(), Some(std::env::temp_dir().as_path()));
+    }
 }

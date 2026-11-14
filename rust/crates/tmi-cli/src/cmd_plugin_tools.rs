@@ -30,8 +30,8 @@ pub fn new(argv: &[String], out: &mut Out) -> CmdResult {
     let cwd = std::env::current_dir().map_err(|e| err(e.to_string()))?;
     let dir = tmi_plugin_tools::new::run(&cwd, &o, &mut |l| out.println(l)).map_err(err)?;
     // tmi wrote this directory itself: building it is not asking about somebody else's code
-    if let Ok(text) = std::fs::read(dir.join(tmi_plugin_tools::manifest::FILE)) {
-        let _ = trust::grant_dir(&dir, DirAction::Build, &text, "plugin new");
+    if let Ok(digest) = Manifest::read(&dir).and_then(|m| tmi_plugin_tools::build::consent_digest(&m)) {
+        let _ = trust::grant_dir(&dir, DirAction::Build, &digest, "plugin new");
     }
     Ok(0)
 }
@@ -45,10 +45,15 @@ pub fn build(argv: &[String], out: &mut Out) -> CmdResult {
     }
     let dir = dirs.first().map_or_else(|| PathBuf::from("."), PathBuf::from);
     // cargo runs the directory's build scripts and macros: its author's code (PLUGINS.md 11)
+    // the consent covers every file cargo may run (build.rs, .cargo/config.toml, ...), not the manifest alone
     let manifest = Manifest::read(&dir).map_err(err)?;
-    let manifest_text = std::fs::read(dir.join(tmi_plugin_tools::manifest::FILE)).unwrap_or_default();
-    trust::require_dir_consent(&dir, DirAction::Build, &manifest_text, tmi_plugin_tools::manifest::FILE)?;
+    let before = tmi_plugin_tools::build::consent_digest(&manifest).map_err(err)?;
+    trust::require_dir_consent(&dir, DirAction::Build, &before, tmi_plugin_tools::manifest::FILE)?;
     tmi_plugin_tools::build::run(&dir, tmi_plugin_host::Settings::default(), &mut |l| out.println(l)).map_err(err)?;
+    // what the allowed build itself changed (a new Cargo.lock) is not asked about again
+    if let Ok(after) = tmi_plugin_tools::build::consent_digest(&manifest) {
+        let _ = trust::grant_dir(&dir, DirAction::Build, &after, "plugin build");
+    }
     // the development plugin was just made by the build the user allowed: no second question
     if let Some(text) = &manifest.dev_command {
         if let Ok(cmd) = tmi_plugin_host::dev::parse_command(text) {
@@ -95,6 +100,16 @@ pub fn test(argv: &[String], out: &mut Out) -> CmdResult {
         };
         (path.clone(), PathBuf::from(corpus))
     };
+    if let (Some(manifest), None) = (&manifest, args::get_str(&m, "corpus")) {
+        // the directory's own corpus stays in it, also through a linked tests/
+        let inside = match (std::fs::canonicalize(&manifest.dir), std::fs::canonicalize(&corpus)) {
+            (Ok(d), Ok(c)) => c.starts_with(d),
+            _ => true, // a missing corpus is reported where it is read
+        };
+        if !inside {
+            return Err(err(format!("{}: the corpus leads outside the plugin directory (a link); give one with --corpus", corpus.display())));
+        }
+    }
     let corpus = args::get_str(&m, "corpus").map_or(corpus, PathBuf::from);
     let o = check::Options {
         component,
@@ -142,10 +157,25 @@ fn native_command(native: bool, given: Option<String>, manifest: Option<&Manifes
 fn dev_content(cmd: &tmi_plugin_host::DevCommand) -> Vec<u8> {
     let mut content = cmd.display().into_bytes();
     content.push(0);
-    if let Ok(bytes) = std::fs::read(cmd.program_path()) {
-        content.extend_from_slice(tmi_store::oid::sha256_hex(&bytes).as_bytes());
+    match std::fs::read(program_file(&cmd.program_path())) {
+        Ok(bytes) => content.extend_from_slice(tmi_store::oid::sha256_hex(&bytes).as_bytes()),
+        // not there yet: a file that appears later is asked about then
+        Err(_) => content.extend_from_slice(b"no file"),
     }
     content
+}
+
+/// The file Windows starts for `program`: `x-dev` with no extension runs
+/// `x-dev.exe` (std's `Command`), so that is the file whose bytes count.
+fn program_file(program: &std::ffi::OsStr) -> PathBuf {
+    let p = PathBuf::from(program);
+    if cfg!(windows) && p.extension().is_none() {
+        let exe = p.with_extension("exe");
+        if exe.is_file() {
+            return exe;
+        }
+    }
+    p
 }
 
 /// `tmiki plugin doctor [dir]`.
@@ -188,7 +218,10 @@ pub fn install(argv: &[String], out: &mut Out) -> CmdResult {
 /// `tmiki plugin add`'s argument: a file, else an installed plugin
 /// (`<id>` or `<id>@<version>`, PLUGINS.md 7.1).
 pub fn component_path(spec: &str) -> Result<PathBuf, RepoError> {
-    if Path::new(spec).exists() {
+    // a bare name is an installed plugin even when a file of that name is
+    // here (a repository's file `ora` must not stand in for plugin ora)
+    let file_like = spec.contains(['/', '\\']) || spec.to_ascii_lowercase().ends_with(".wasm");
+    if file_like || (Path::new(spec).exists() && !tmi_plugin_tools::valid_id(spec.split('@').next().unwrap_or(spec))) {
         return Ok(PathBuf::from(spec));
     }
     let id = spec.split('@').next().unwrap_or(spec);
@@ -197,4 +230,33 @@ pub fn component_path(spec: &str) -> Result<PathBuf, RepoError> {
     }
     let home = tmi_plugin_tools::install::home().map_err(err)?;
     tmi_plugin_tools::install::find(&home, spec).map_err(err)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_file_named_like_a_plugin_does_not_stand_in_for_the_installed_one() {
+        // a repository's file `<id>` in the current directory, and no such plugin installed
+        let id = format!("zz-planted-{}", std::process::id());
+        std::fs::write(&id, b"\0asm").unwrap();
+        let got = super::component_path(&id);
+        let _ = std::fs::remove_file(&id);
+        assert!(got.as_ref().map_or(true, |p| p != std::path::Path::new(&id)), "{got:?}");
+        // a path or a .wasm name is a file
+        assert_eq!(super::component_path("./x.wasm").unwrap(), std::path::PathBuf::from("./x.wasm"));
+        assert_eq!(super::component_path("x.wasm").unwrap(), std::path::PathBuf::from("x.wasm"));
+    }
+
+    #[test]
+    fn the_dev_command_consent_covers_the_exe_windows_runs() {
+        let dir = std::env::temp_dir().join(format!("tmi-dev-exe-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("target/debug")).unwrap();
+        let cmd = tmi_plugin_host::dev::parse_command("target/debug/x-dev").unwrap().in_dir(&dir);
+        let exe = if cfg!(windows) { "target/debug/x-dev.exe" } else { "target/debug/x-dev" };
+        std::fs::write(dir.join(exe), b"granted").unwrap();
+        let granted = super::dev_content(&cmd);
+        std::fs::write(dir.join(exe), b"swapped").unwrap();
+        assert_ne!(super::dev_content(&cmd), granted, "a swapped program must be asked about again");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
