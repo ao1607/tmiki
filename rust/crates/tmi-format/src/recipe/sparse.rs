@@ -69,8 +69,9 @@ fn union(a: Option<Rect>, b: Rect) -> Rect {
     }
 }
 
-/// Every pair `(i, j)`, `i < j`, of rectangles that meet.
-fn meeting_pairs(rects: &[(usize, Rect)]) -> Vec<(usize, usize)> {
+/// Every pair `(i, j)`, `i < j`, of rectangles that meet; None when there
+/// are more than `max` (n tiles laid on one place make n² / 2).
+fn meeting_pairs(rects: &[(usize, Rect)], max: usize) -> Option<Vec<(usize, usize)>> {
     let mut by_top: Vec<&(usize, Rect)> = rects.iter().collect();
     by_top.sort_unstable_by_key(|(i, r)| (r.1, r.0, *i));
     let mut pairs = Vec::new();
@@ -80,11 +81,21 @@ fn meeting_pairs(rects: &[(usize, Rect)]) -> Vec<(usize, usize)> {
                 break;
             }
             if meets(a, b) {
+                if pairs.len() == max {
+                    return None;
+                }
                 pairs.push(((*i).min(*j), (*i).max(*j)));
             }
         }
     }
-    pairs
+    Some(pairs)
+}
+
+/// The meeting pairs `decode` works out at most: past them it decodes the
+/// whole bitmap instead (`decode_tiles`, the same bytes; the bitmap's size
+/// was held to the pixel limit), whose time and memory do not grow with them.
+fn max_pairs(tiles: usize) -> usize {
+    tiles.saturating_mul(8).max(1 << 16)
 }
 
 fn find(parent: &mut [usize], mut i: usize) -> usize {
@@ -175,7 +186,10 @@ pub fn decode(env: &DecodeEnv, t: &Tiled, w: usize, h: usize) -> Result<LayerCro
     // what the full decode places, cut to the bitmap
     let placed: Vec<(usize, Rect)> =
         tiles.iter().enumerate().filter(|(_, tile)| decodes(tile)).filter_map(|(i, tile)| Some((i, rect_in(w, h, tile)?))).collect();
-    let pairs = meeting_pairs(&placed);
+    let Some(pairs) = meeting_pairs(&placed, max_pairs(placed.len())) else {
+        let d = super::decode_tiles(env, t, w, h)?;
+        return Ok(LayerCrop::from_full(&d.data, w, h));
+    };
     let first_overlap = if t.overlap == Overlap::Reject { pairs.iter().map(|p| p.1).min() } else { None };
 
     // groups of tiles whose rectangles meet, each in tile order

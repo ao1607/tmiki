@@ -1059,6 +1059,20 @@ fn the_tight_tile_decode_allocates_what_is_painted() {
     assert_eq!(c.rgba, [9, 8, 7, 6]);
 }
 
+/// 20,000 tiles laid on one place: 2 * 10^8 meeting pairs (3 GB) for the
+/// tight decode to group. Past its pair budget it decodes the bitmap whole,
+/// to the same crop.
+#[test]
+fn tiles_laid_on_one_place_by_the_thousand_are_not_paired_up() {
+    let cx = ReadCx::new(None);
+    let tiles: Vec<Tile> =
+        (0..20_000).map(|i| Tile { x: 1, y: 1, width: 2, height: 2, content: TileContent::Fill(Rgba8 { r: (i % 251) as u8, g: 7, b: 0, a: 200 }) }).collect();
+    let bm = bitmap_of(tiles, Overlap::Over, 4, 4);
+    let got = decode_layer_crop(&env(&[], &cx), &bm).unwrap();
+    let want = full_crop(&env(&[], &cx), &bm).unwrap();
+    assert_eq!((got.header(), got.rgba), (want.header(), want.rgba));
+}
+
 #[test]
 fn a_truncated_zlib_stream_fails_even_when_its_bytes_are_all_there() {
     // zlib.decompress (Python) and the CLIP / MDP2 inflaters want the stream's end
