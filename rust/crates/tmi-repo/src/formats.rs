@@ -182,16 +182,12 @@ pub fn host(repo: &Repo) -> std::result::Result<PluginHost, String> {
 
 /// `plugin.fuel` (instructions per call), `plugin.timeout` (seconds per
 /// call) and `plugin.maxMemory` (bytes, or with a k / m / g suffix): the
-/// repository's config, else the user's (PLUGINS.md 3.1).
+/// smaller of the repository's config and the user's (PLUGINS.md 3.1). A
+/// repository's config may come with the repository, so it can lower the
+/// user's limits but not raise them.
 pub fn settings(repo: &Repo) -> Result<Settings> {
     let repo_cfg = repo.read_config()?;
     let user_cfg = crate::config::read_user_config()?;
-    let get = |key: &str| -> Result<Option<Value>> {
-        Ok(match crate::config::get_value(&repo_cfg, key)? {
-            Some(v) => Some(v.clone()),
-            None => crate::config::get_value(&user_cfg, key)?.cloned(),
-        })
-    };
     let number = |key: &str, v: Value| -> Result<u64> {
         let bad = || RepoError::runtime(format!("{key} is not a positive number"));
         match v {
@@ -210,16 +206,15 @@ pub fn settings(repo: &Repo) -> Result<Settings> {
             _ => Err(bad()),
         }
     };
+    let get = |key: &str, default: u64| -> Result<u64> {
+        let in_user = crate::config::get_value(&user_cfg, key)?.map(|v| number(key, v.clone())).transpose()?;
+        let in_repo = crate::config::get_value(&repo_cfg, key)?.map(|v| number(key, v.clone())).transpose()?;
+        Ok(repo_lowers(in_repo, in_user, default))
+    };
     let mut s = Settings::default();
-    if let Some(v) = get("plugin.fuel")? {
-        s.fuel = Some(number("plugin.fuel", v)?);
-    }
-    if let Some(v) = get("plugin.timeout")? {
-        s.timeout = Some(std::time::Duration::from_secs(number("plugin.timeout", v)?));
-    }
-    if let Some(v) = get("plugin.maxMemory")? {
-        s.max_memory = number("plugin.maxMemory", v)? as usize;
-    }
+    s.fuel = Some(get("plugin.fuel", s.fuel.unwrap_or(u64::MAX))?);
+    s.timeout = Some(std::time::Duration::from_secs(get("plugin.timeout", s.timeout.map_or(u64::MAX, |t| t.as_secs()))?));
+    s.max_memory = get("plugin.maxMemory", s.max_memory as u64)? as usize;
     s.workers = plugin_workers(s.workers, s.max_memory as u64, tmi_import::limit::total_ram_bytes());
     // measurements only (tools/bench_plugins.py, PLUGINS.md 6.4 item 7):
     // `TMI_PLUGIN_WORKERS=K` sets 6.1's K over the memory budget; unset,
@@ -228,6 +223,13 @@ pub fn settings(repo: &Repo) -> Result<Settings> {
         s.workers = k;
     }
     Ok(s)
+}
+
+/// A plugin limit: the user's value (else tmiki's `default`), lowered by
+/// the repository's.
+fn repo_lowers(in_repo: Option<u64>, in_user: Option<u64>, default: u64) -> u64 {
+    let user = in_user.unwrap_or(default);
+    in_repo.map_or(user, |r| r.min(user))
 }
 
 /// PLUGINS.md 6.1's K: at most `cores` (min(cores, 8), the host's
@@ -772,6 +774,17 @@ mod tests {
             e.message().unwrap_or_default(),
             "a.ora, b.ora: recorded with a development plugin (tmiki plugin dev); a commit cannot hold such records. Add them again without TMI_PLUGIN_DEV first"
         );
+    }
+
+    /// A `.tmi/config` that came with the repository set `plugin.maxMemory`
+    /// (fuel, timeout) above the user's limits, and it won.
+    #[test]
+    fn a_repository_config_cannot_raise_the_users_plugin_limits() {
+        const G: u64 = 1 << 30;
+        assert_eq!(repo_lowers(Some(64 * G), None, G), G, "above tmiki's default");
+        assert_eq!(repo_lowers(Some(64 * G), Some(2 * G), G), 2 * G, "above the user's");
+        assert_eq!(repo_lowers(Some(G / 2), Some(2 * G), G), G / 2, "lowering is fine");
+        assert_eq!(repo_lowers(None, Some(4 * G), G), 4 * G, "the user may raise them");
     }
 
     #[test]
