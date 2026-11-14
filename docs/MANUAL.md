@@ -217,7 +217,9 @@ tmihub の URL はリポジトリの API ルート `…/api/<user>/<repo>` を�
 ```powershell
 # トークンを設定 (どちらか): tmihub の「設定 → アクセストークン」で発行
 tmiki config --global tmihub.token <PAT>
+tmiki config --global tmihub.host example.com
 $env:TMIHUB_TOKEN = "<PAT>"          # または環境変数
+$env:TMIHUB_HOST = "example.com"
 
 # リモート登録 → push
 tmiki remote add origin https://example.com/api/<user>/<repo>
@@ -228,7 +230,7 @@ tmiki clone https://example.com/api/<user>/<repo>
 tmiki pull origin main
 ```
 
-トークンは環境変数 `TMIHUB_TOKEN` → グローバル設定 `tmihub.token` の順に解決されます。HTTPS 越しの強制 push (非 fast-forward) は tmihub 側が拒否します (409) — 先に `tmiki pull` してマージしてください。
+トークンは環境変数 `TMIHUB_TOKEN` → グローバル設定 `tmihub.token` の順に解決されます。トークンは `tmihub.host`（環境変数なら `TMIHUB_HOST`）に書いたホスト（`host` または `host:port`）にだけ送られます。ホストを書いていないときや、リモートが別のホストのときは送りません。HTTPS 越しの強制 push (非 fast-forward) は tmihub 側が拒否します (409) — 先に `tmiki pull` してマージしてください。
 
 ## 復旧 (reflog / gc)
 
