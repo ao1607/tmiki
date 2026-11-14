@@ -316,6 +316,7 @@ pub fn walk_tree(repo: &Repo, tree_ref: &str, parent: Parent, out: &mut Vec<(Val
     let Some(layers) = tree.get("layers") else { return Ok(()) };
     for layer in layers.as_array().ok_or_else(|| fwd("tree layers not a list"))? {
         out.push((layer.clone(), parent.clone()));
+        crate::stage::check_layer_count(out.len())?;
         match layer.get("subtree_ref") {
             Some(Value::Str(s)) if !s.is_empty() => {
                 let name = match layer.get("name") {

@@ -89,6 +89,7 @@ fn flatten(repo: &Repo, tree_ref: &str, prefix: &str, out: &mut Vec<(Value, Stri
             _ => None,
         };
         out.push((layer, path_name.clone()));
+        crate::stage::check_layer_count(out.len())?;
         if let Some(s) = sub {
             flatten(repo, &s, &path_name, out, depth + 1)?;
         }

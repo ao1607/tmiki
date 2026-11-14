@@ -83,6 +83,7 @@ pub fn flatten_layers(repo: &Repo, tree_ref: &str, prefix: &str, out: &mut Vec<V
         let mut item = map.clone();
         item.insert("path_name".into(), Value::Str(path.clone()));
         out.push(Value::Object(item));
+        tmi_repo::stage::check_layer_count(out.len())?;
         match map.get("subtree_ref") {
             Some(Value::Str(s)) if !s.is_empty() => flatten_layers(repo, s, &path, out, depth + 1)?,
             Some(v) if v.truthy() => return Err(fwd("subtree_ref is not a str")),
