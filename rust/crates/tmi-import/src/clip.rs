@@ -7,7 +7,7 @@
 use std::collections::{HashMap, HashSet};
 
 use rusqlite::types::Value as Sv;
-use rusqlite::{Connection, MAIN_DB};
+use rusqlite::Connection;
 use tmi_clip::container::{self, Chunk};
 use tmi_clip::ClipDoc;
 use tmi_store::json::{Int, Map, Value};
@@ -117,9 +117,7 @@ struct Db<'a> {
 }
 
 pub fn open_db(sqlite: &[u8]) -> Res<Connection> {
-    let mut con = Connection::open_in_memory().map_err(sq)?;
-    con.deserialize_read_exact(MAIN_DB, sqlite, sqlite.len(), true).map_err(sq)?;
-    Ok(con)
+    tmi_clip::db::open(sqlite, true).map_err(decline)
 }
 
 /// The column names of `PRAGMA table_info(table)`, in order.
@@ -560,9 +558,14 @@ pub fn preview(f: &ClipFile) -> Res<Option<(Rgba, Option<Vec<u8>>)>> {
     if (declared.0.max(0) as u128) * (declared.1.max(0) as u128) > canvas_pixels {
         return Ok(None);
     }
-    let decode = || -> Res<(usize, usize, Vec<u8>)> {
-        let (img, _) = tmi_image::decode_rgba(data).map_err(|e| decline(format!("CanvasPreview for Pillow ({e:?})")))?;
-        Ok((img.width, img.height, img.data))
+    // The decode is held to the canvas too: a preview whose header the check
+    // above could not read (a JPEG Pillow opens with a warning) is still one.
+    let decode = || -> Res<Option<(usize, usize, Vec<u8>)>> {
+        match tmi_image::decode_rgba_max(data, Some(u64::try_from(canvas_pixels).unwrap_or(u64::MAX))) {
+            Ok((img, _)) => Ok(Some((img.width, img.height, img.data))),
+            Err(tmi_image::DecodeError::TooLarge(..)) => Ok(None),
+            Err(e) => Err(decline(format!("CanvasPreview for Pillow ({e:?})"))),
+        }
     };
     if data.starts_with(crate::header::PNG_SIGNATURE)
         && data.len() >= 24
@@ -571,12 +574,12 @@ pub fn preview(f: &ClipFile) -> Res<Option<(Rgba, Option<Vec<u8>>)>> {
             == canvas
         && (declared == canvas || declared == (0, 0))
     {
-        let (dw, dh, rgba) = decode()?;
+        let Some((dw, dh, rgba)) = decode()? else { return Ok(None) };
         if (dw as i64, dh as i64) == canvas {
             return Ok(Some((Rgba { width: dw, height: dh, data: rgba }, Some(data.clone()))));
         }
     }
-    let (dw, dh, rgba) = decode()?;
+    let Some((dw, dh, rgba)) = decode()? else { return Ok(None) };
     let expected = (if declared.0 != 0 { declared.0 } else { dw as i64 }, if declared.1 != 0 { declared.1 } else { dh as i64 });
     let mut image = Rgba { width: dw, height: dh, data: rgba };
     if (dw as i64, dh as i64) != expected || expected != canvas {
@@ -690,5 +693,35 @@ mod tests {
         // The file's own preview (smaller than the canvas) still serves.
         let f = read(&raw).ok().expect("read");
         assert!(matches!(preview(&f), Ok(Some(_))));
+    }
+
+    /// A CanvasPreview JPEG that the header walk refuses (a malformed MPO
+    /// segment) but libjpeg opens, declaring 65000 x 65000 over a 100 x 100
+    /// canvas: still not decoded (12 GB of RGB), the layers draw instead.
+    #[test]
+    fn a_preview_whose_header_is_refused_is_still_held_to_the_canvas() {
+        use tmi_pillow::image::{Image, Mode};
+        let img = Image::new(Mode::RGB, 8, 8, vec![90; 8 * 8 * 3]);
+        let jpeg = tmi_image::jpeg::encode_jpeg(&img, &Default::default()).unwrap();
+        let mut data = jpeg[..2].to_vec();
+        data.extend_from_slice(&[0xFF, 0xE2, 0x00, 0x0A]);
+        data.extend_from_slice(b"MPF\0junk");
+        data.extend_from_slice(&jpeg[2..]);
+        let sof = data.windows(2).position(|m| m == [0xFF, 0xC0]).unwrap();
+        data[sof + 5..sof + 9].copy_from_slice(&[0xFD, 0xE8, 0xFD, 0xE8]);
+        assert!(tmi_image::header::header(&data).is_err());
+        let f = ClipFile {
+            chunk_count: 0,
+            head_uuid: Vec::new(),
+            extas: HashMap::new(),
+            width: 100,
+            height: 100,
+            resolution: 72.0,
+            root_children: Vec::new(),
+            leaf_infos: HashMap::new(),
+            extra: HashMap::new(),
+            preview: Some((Sv::Integer(0), Sv::Integer(0), Sv::Blob(data))),
+        };
+        assert!(matches!(preview(&f), Ok(None)));
     }
 }

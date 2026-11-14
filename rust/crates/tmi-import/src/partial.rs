@@ -398,7 +398,9 @@ pub fn render_incremental(doc: &ClipDoc, raw: &[u8], base: &dyn CompositeBase, v
         || dirty_rects(&old, &old_raw, doc, raw),
         || -> Option<Rgba> {
             let h = crate::header::png_header(&png, false).ok()?;
-            if h.mode != Some("RGBA") {
+            // a base of another size is not used (below): not decoded either,
+            // as it is a stored object a hostile repository chose
+            if h.mode != Some("RGBA") || h.size != (doc.width, doc.height) {
                 return None;
             }
             let (img, fmt) = tmi_image::decode_rgba(&png).ok()?;
@@ -432,4 +434,55 @@ pub fn render_incremental(doc: &ClipDoc, raw: &[u8], base: &dyn CompositeBase, v
         }
     }
     Ok(Some((image, report)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Base {
+        png: Vec<u8>,
+        source: Vec<u8>,
+    }
+
+    impl CompositeBase for Base {
+        fn load_composite_png(&self) -> Result<Vec<u8>, String> {
+            Ok(self.png.clone())
+        }
+        fn load_source(&self) -> Result<Vec<u8>, String> {
+            Ok(self.source.clone())
+        }
+    }
+
+    /// A stored base composite (a hostile repository's object) whose IHDR
+    /// declares 2^20 x 2^20 RGBA over a 4 x 4 canvas: not decoded (4 TiB),
+    /// as a base of another size is never used.
+    #[test]
+    fn a_base_composite_of_another_size_is_not_decoded() {
+        fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+            let mut crc = flate2::Crc::new();
+            crc.update(kind);
+            crc.update(data);
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            out.extend_from_slice(kind);
+            out.extend_from_slice(data);
+            out.extend_from_slice(&crc.sum().to_be_bytes());
+        }
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(&(1u32 << 20).to_be_bytes());
+        ihdr.extend_from_slice(&(1u32 << 20).to_be_bytes());
+        ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+        let mut png = crate::header::PNG_SIGNATURE.to_vec();
+        chunk(&mut png, b"IHDR", &ihdr);
+        let text = format!("tmi-composite\0{{\"renderer\":\"layered/v{}\"}}", crate::cache::RENDER_CACHE_VERSION);
+        chunk(&mut png, b"tEXt", text.as_bytes());
+        chunk(&mut png, b"IDAT", &[0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]);
+        chunk(&mut png, b"IEND", &[]);
+        assert!(is_layered_base(&png));
+        use tmi_clip::testing::{minimal_clip, offscreen_attribute, outer_id, raster_layer_sql};
+        let raw = minimal_clip(4, 4, &raster_layer_sql(2, 0, &outer_id(1), &offscreen_attribute(4, 4, 1, 1)), vec![]).unwrap();
+        let doc = ClipDoc::open(&raw).unwrap();
+        let base = Base { png, source: raw.clone() };
+        assert!(matches!(render_incremental(&doc, &raw, &base, false), Ok(None)));
+    }
 }
