@@ -171,8 +171,14 @@ struct Samples {
     cuts: Vec<(usize, usize)>,
 }
 
-/// `_layer_samples`.
-fn layer_samples(strokes: &[&Stroke], wd_per: &[Vec<f64>], ox: i64, oy: i64, hair: bool) -> Samples {
+/// The most spline samples one layer's strokes may take (about 100 bytes
+/// each while planned). A segment takes up to two a pixel of its length, so
+/// this is some 30 million pixels of strokes; a file's widths that jump by
+/// millions between points ask for billions.
+const MAX_SAMPLES: usize = 1 << 26;
+
+/// `_layer_samples` (Err past `MAX_SAMPLES`).
+fn layer_samples(strokes: &[&Stroke], wd_per: &[Vec<f64>], ox: i64, oy: i64, hair: bool) -> Res<Samples> {
     let sizes: Vec<usize> = strokes.iter().map(|s| s.xy.len()).collect();
     let mut p: Vec<[f64; 2]> = Vec::new();
     let mut wd: Vec<f64> = Vec::new();
@@ -240,7 +246,10 @@ fn layer_samples(strokes: &[&Stroke], wd_per: &[Vec<f64>], ox: i64, oy: i64, hai
     }
 
     // The samples of every segment, all strokes at once.
-    let total: usize = segs.iter().map(|s| s.m).sum();
+    let total: usize = segs.iter().map(|s| s.m).fold(0usize, usize::saturating_add);
+    if total > MAX_SAMPLES {
+        return Err(format!("{total} stroke samples (at most {MAX_SAMPLES} a layer)"));
+    }
     let mut xy: Vec<[f64; 2]> = Vec::with_capacity(total);
     let mut ts: Vec<f64> = Vec::with_capacity(total);
     let mut seg_of: Vec<usize> = Vec::with_capacity(total);
@@ -301,7 +310,7 @@ fn layer_samples(strokes: &[&Stroke], wd_per: &[Vec<f64>], ox: i64, oy: i64, hai
         out_r.push(rr[e]);
         cuts.push((a, out_xy.len()));
     }
-    Samples { xy: out_xy, r: out_r, cuts }
+    Ok(Samples { xy: out_xy, r: out_r, cuts })
 }
 
 /// `_centripetal_tangents` for one segment.
@@ -381,7 +390,7 @@ pub fn plan(node: &Node, strokes: &[Stroke], brushes: &dyn Fn(u32) -> Res<Brush>
         brush_of.push(brushes(s.brush)?);
     }
     let wd: Vec<Vec<f64>> = strokes.iter().zip(&brush_of).map(|(s, b)| dab_size(s, b)).collect();
-    let mut samples = layer_samples(&strokes, &wd, node.offset_x, node.offset_y, mono);
+    let mut samples = layer_samples(&strokes, &wd, node.offset_x, node.offset_y, mono).map_err(|e| format!("layer {}: {e}", node.main_id))?;
     if mono {
         for p in samples.xy.iter_mut() {
             p[0] += MONO_SHIFT[0];
@@ -635,6 +644,54 @@ fn draw_stroke(c: &mut LCanvas, p: &Planned, x0: i64, y0: i64, ss: i64) {
             let (cx, cy, rk) = (pts[k][0], pts[k][1], rr[k]);
             ellipse(c, [cx - rk, cy - rk, cx + rk, cy + rk]);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One stroke of 1000 points (64 KB of vector data) zig-zagging across
+    /// ±990,000 with a width that jumps by millions between points: every
+    /// segment asks for millions of samples (some 450 GB planned). Refused
+    /// before they are allocated; a plain stroke still plans.
+    #[test]
+    fn a_stroke_whose_width_jumps_by_millions_is_refused_before_its_samples() {
+        let node = Node {
+            main_id: 2,
+            layer_type: None,
+            folder: false,
+            visible: true,
+            mask_enabled: false,
+            opacity: 256,
+            composite: 0,
+            clip: false,
+            offset_x: 0,
+            offset_y: 0,
+            render_mipmap: None,
+            mask_mipmap: None,
+            render_offset_x: 0,
+            render_offset_y: 0,
+            mask_offset_x: 0,
+            mask_offset_y: 0,
+            comic_frame: false,
+            children: Vec::new(),
+        };
+        let stroke = |n: usize, far: f64, jump: f64| Stroke {
+            flags: 0,
+            brush: 1,
+            size: 1e7,
+            color: [0; 3],
+            opacity: 1.0,
+            xy: (0..n).map(|i| if i % 2 == 0 { [-far, -far] } else { [far, far] }).collect(),
+            pflags: vec![0; n],
+            f: (0..n).map(|i| [1.0, 0.0, 0.0, 0.0, if i % 2 == 0 { 0.0 } else { jump }, 1.0, 0.0]).collect(),
+            phase: None,
+        };
+        let brushes = |_: u32| -> Res<Brush> { Ok(Brush { pressure: Pressure::Linear, thick: 1.0, composite: 0 }) };
+        let e = plan(&node, &[stroke(1000, 990_000.0, 10.0)], &brushes, [0, 0, 100, 100], false).err().expect("refused");
+        assert!(e.contains("stroke samples"), "{e}");
+        assert!(plan(&node, &[stroke(3, 50.0, 1e-6)], &brushes, [0, 0, 100, 100], false).is_ok());
     }
 }
 

@@ -61,6 +61,10 @@ fn clip(x: f64, lo: f64, hi: f64) -> f64 {
 
 const SAMPLE_EPS: f64 = 1e-4;
 
+/// The largest image material original drawn when the canvas is smaller:
+/// 2^27 pixels (11585 x 11585, a 100-megapixel photo with room to spare).
+pub const MAX_ORIGINAL_PIXELS: u128 = 1 << 27;
+
 /// `_mip_level`: the level whose scale stays above ½, and its plane.
 fn mip_level(scale: f64, w: usize, h: usize) -> u32 {
     let (mut level, mut w, mut h) = (0u32, w, h);
@@ -164,6 +168,14 @@ impl Ctx<'_> {
             // (`_full_offscreen` reads the attribute outside the decode's
             // try: Python drops the whole layer, warning about the layer.)
             let attr = parse_offscreen_attribute(&info.attribute).map_err(|e| format!("unreadable material attribute: {e}"))?;
+            // The original is held whole (4 bytes a pixel, then 16 in each
+            // plane), however little of it is painted: not the 64 canvases
+            // a layer's offscreen may be, but the canvas or MAX_ORIGINAL_PIXELS.
+            let pixels = attr.pixel_width as u128 * attr.pixel_height as u128;
+            if pixels > (self.doc.width as u128 * self.doc.height as u128).max(MAX_ORIGINAL_PIXELS) {
+                self.note_unreadable(info, format!("a material original of {}x{} pixels", attr.pixel_width, attr.pixel_height));
+                return Ok(None);
+            }
             if let Some(why) = tmi_clip::tiles::offscreen_oversize(attr.pixel_width, attr.pixel_height, self.doc.width as usize, self.doc.height as usize) {
                 self.note_unreadable(info, why);
                 return Ok(None);
@@ -360,4 +372,40 @@ pub fn sample_tiled(src: &Original, corners: [[f64; 2]; 3], window: Rect) -> Res
         return Err("material sample point out of range".into());
     }
     Ok(Some(Buf { x: window[0], y: window[1], w, h, px: out }))
+}
+
+#[cfg(test)]
+mod tests {
+    use tmi_clip::testing::{exta_payload, minimal_clip, offscreen_attribute, outer_id, tile_record};
+
+    use crate::clip::band::{render, Target};
+    use crate::clip::report::Note;
+
+    /// An image material whose original declares 20000 x 20000 (1.6 GB held
+    /// whole, 6.4 GB per plane) on a 13000 x 13000 canvas, with one painted
+    /// 4 x 4 tile: within the 64 canvases a layer's offscreen may be, but
+    /// left out (and warned about) before the original is allocated.
+    #[test]
+    fn a_material_original_declaring_gigapixels_is_left_out_before_allocating() {
+        let outer = outer_id(5);
+        let z = tmi_clip::zlib::compress(&[255u8; 16], -1);
+        let exta = exta_payload(&outer, &[tile_record(0, 16, 4, 4, Some(&z))]);
+        let hex: String = offscreen_attribute(20000, 20000, 79, 79).iter().map(|b| format!("{b:02X}")).collect();
+        let sql = format!(
+            "ALTER TABLE Layer ADD COLUMN ResizableOriginalMipmap; ALTER TABLE Layer ADD COLUMN ResizableImageInfo;
+             INSERT INTO Layer(MainId, LayerName, LayerFolder, LayerVisibility, LayerOpacity, LayerNextIndex, ResizableOriginalMipmap, ResizableImageInfo)
+                 VALUES (2, 'material', 0, 1, 256, 0, 5, X'01');
+             INSERT INTO Mipmap VALUES (5, 5); INSERT INTO MipmapInfo VALUES (5, 5);
+             INSERT INTO Offscreen VALUES (5, X'{hex}', '{outer}');"
+        );
+        let raw = minimal_clip(13000, 13000, &sql, vec![exta]).unwrap();
+        let doc = tmi_clip::ClipDoc::open(&raw).unwrap();
+        let mut out = vec![0u8; 4];
+        let report = render(&doc, &raw, [255; 4], &Target::Region { window: [0, 0, 1, 1], decodable_all: false }, false, &mut out).unwrap();
+        assert!(
+            report.notes.iter().any(|n| matches!(n, Note::Offscreen { reason, .. } if reason.contains("material original"))),
+            "{:?}",
+            report.notes
+        );
+    }
 }
