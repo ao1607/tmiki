@@ -1,6 +1,6 @@
 [package]
 name = "tmi-plugin-ora"
-description = "OpenRaster reader and writer for tmiki (PLUGINS.md 7.3): written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
+description = "OpenRaster reader and writer for tmiki: written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
 version = "0.1.0"
 edition = "2021"
 publish = false

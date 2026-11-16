@@ -1,4 +1,4 @@
-# The plugin author's tools (PLUGINS.md 7.1, P8): for both templates of
+# The plugin author's tools: for both templates of
 # `tmiki plugin new` (reader and writer; plugins are written in Rust, Q14),
 # new -> build -> test on Linux, Windows and macOS, with the tools a plugin
 # author installs (rustup's wasm32-wasip2 target). tmiki itself installs and

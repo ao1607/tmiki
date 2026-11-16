@@ -167,12 +167,11 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 
 ## Help
 
-[Guide (Japanese)](docs/MANUAL.md) · [Writing a plugin](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [Report a bug](https://github.com/ao1607/tmiki/issues/new) ·
-[Design notes](PLUGINS.md)
+[Guide (Japanese)](docs/MANUAL.md) · [Writing a plugin](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [Report a bug](https://github.com/ao1607/tmiki/issues/new)
 
 ## About
 
-**Name:** tmiki (*tsumiki*, building blocks) stacks up layers and commits. It was called tmi while in development, so the Rust crates, the repository layout (`.tmi/`), the `TMI_*` variables and the design notes still use the old name.
+**Name:** tmiki (*tsumiki*, building blocks) stacks up layers and commits. It was called tmi while in development, so the Rust crates, the repository layout (`.tmi/`) and the `TMI_*` variables still use the old name.
 
 **Trademarks:** tmiki is an independent personal project, not affiliated with the makers of CLIP STUDIO PAINT, MediBang Paint or FireAlpaca. The names are trademarks of their owners.
 
@@ -180,4 +179,3 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 
 tmiki is available under your choice of the [MIT License](LICENSE-MIT) or the [Apache License 2.0](LICENSE-APACHE). `rust/vendor/libsqlite3-sys` is bundled third-party code under its own licenses.
 
-<sub>For AI tools: <a href="CLAUDE.md">developer guide</a></sub>

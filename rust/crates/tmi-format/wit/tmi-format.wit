@@ -1,5 +1,4 @@
-// tmi:format 0.1.0 (experimental). PLUGINS.md section 2.1 is the design this
-// file follows; where the two differ, PLUGINS.md "P1 の結果" says why.
+// tmi:format 0.1.0 (experimental).
 package tmi:format@0.1.0;
 
 /// Plain values the plugin returns. The host checks them, then decodes and
@@ -16,7 +15,7 @@ interface types {
   }
 
   /// A transform of a byte string, applied in the order listed. Each name has
-  /// one fixed meaning (PLUGINS.md 3.3).
+  /// one fixed meaning.
   variant codec {
     zlib,                     // RFC 1950 (adler32 is checked)
     deflate,                  // RFC 1951, raw
@@ -168,7 +167,7 @@ interface source {
   }
 }
 
-/// Host helpers. Each output is fixed by name (PLUGINS.md 3.3).
+/// Host helpers. Each output is fixed by name.
 interface codecs {
   use types.{bytes, codec, encoded-image};
   record image-header {
@@ -241,7 +240,7 @@ interface edit {
   }
   enum zlib-kernel { zlib-v131 }               // same as tmi-clip/src/zlib.rs (CPython's zlib.compress); zlib 1.3.1
   variant encoding { raw, zlib(tuple<zlib-kernel, s8>), deflate(tuple<zlib-kernel, s8>) }
-  variant image-encoding { png-v1, jpeg-keep-v1(list<u8>), webp-v1(u8) }   // jpeg-keep: the original DQT and subsampling (RUST_MIGRATION 2b-6)
+  variant image-encoding { png-v1, jpeg-keep-v1(list<u8>), webp-v1(u8) }   // jpeg-keep: the original DQT and subsampling
   encode-tile: func(px: borrow<pixels>, x: u32, y: u32, w: u32, h: u32,
                     layout: layout, steps: list<encoding>) -> result<blob, string>;
   encode-image: func(px: borrow<pixels>, enc: image-encoding) -> result<blob, string>;
@@ -266,7 +265,7 @@ interface writer {
     new-pixels: option<u32>,
     props: list<prop-change>,
   }
-  /// The host joins the pieces in order into the new file (PLUGINS.md 2.2):
+  /// The host joins the pieces in order into the new file:
   /// `source` copies bytes of the file being written, `bytes` are the
   /// plugin's own, `blob` is what `edit` encoded (each blob at most once).
   variant piece { source(span), bytes(list<u8>), blob(blob) }

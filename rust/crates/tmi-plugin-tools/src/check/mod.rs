@@ -256,11 +256,11 @@ pub fn run(o: &Options, print: Print) -> Result<Report, String> {
         let file = Some(rel.as_str());
         let first = match readers::import(&wasm, &importer, name, data, LIMITS) {
             Ok(i) => {
-                report.ok("3 the record: every recipe decoded, the host's checks (PLUGINS.md 3.4)", file);
+                report.ok("3 the record: every recipe decoded, the host's checks", file);
                 i
             }
             Err(e) => {
-                report.fail("3 the record: every recipe decoded, the host's checks (PLUGINS.md 3.4)", file, e);
+                report.fail("3 the record: every recipe decoded, the host's checks", file, e);
                 continue;
             }
         };

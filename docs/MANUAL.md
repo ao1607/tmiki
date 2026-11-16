@@ -15,7 +15,7 @@ cd rust
 cargo build --release -p tmi-cli   # rust\target\release\tmiki.exe
 ```
 
-形式プラグインのホスト (`rust\crates\tmi-plugin-host`、PLUGINS.md の P5) は wasmtime ごと `tmiki` の実行ファイルに入っています。`tmi-cli` のビルドに追加の手順はありませんが、Rust のテスト (`cargo test --workspace`) はテスト用のプラグイン (`rust\plugins`。独立した workspace) を WebAssembly にビルドして使うので、先に `rustup target add wasm32-wasip2` が要ります。手で作るときは `cargo build --release --target wasm32-wasip2 --manifest-path rust\plugins\Cargo.toml` です。
+形式プラグインのホスト (`rust\crates\tmi-plugin-host`) は wasmtime ごと `tmiki` の実行ファイルに入っています。`tmi-cli` のビルドに追加の手順はありませんが、Rust のテスト (`cargo test --workspace`) はテスト用のプラグイン (`rust\plugins`。独立した workspace) を WebAssembly にビルドして使うので、先に `rustup target add wasm32-wasip2` が要ります。手で作るときは `cargo build --release --target wasm32-wasip2 --manifest-path rust\plugins\Cargo.toml` です。
 
 ### 困ったとき
 
@@ -268,7 +268,7 @@ tmiki hook run post-commit       # 手動で発火
 
 ## 形式プラグイン
 
-tmiki が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader。PLUGINS.md) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。
+tmiki が組み込みで読まない形式は、WebAssembly の component (`tmi:format` の reader) で読ませられます。component はリポジトリの `.tmiplugins/<id>.wasm` に置いて普通のファイルとして commit し、どのファイルをどのプラグインで読むかは `.tmiattributes` に書きます。clone した人も同じ版で取り込みます。
 
 ```powershell
 tmiki plugin add ora.wasm          # .tmiplugins/ora.wasm に置き、.tmiattributes に「*.ora format=plugin:ora」を足して両方ステージ
@@ -311,14 +311,14 @@ tmiki merge side                                     # 両側で別のレイヤ�
 
 ### プラグインを作る
 
-`tmiki` の実行ファイルに、プラグインを書く人のための道具が入っています (PLUGINS.md 7.1。リポジトリの外で使います)。プラグインは Rust で書きます (PLUGINS.md 11 節 Q14。速さと軽さのため。AI に書かせる前提なので、作者の言語の好みより実行時の速さを取りました)。インターフェースの全部は `PLUGIN_SPEC.md` (`rust\crates\tmi-plugin-tools\PLUGIN_SPEC.md`。`plugin new` がプラグインのディレクトリにも書き出します) にあり、それだけを AI に渡して書かせられるように書いてあります。
+`tmiki` の実行ファイルに、プラグインを書く人のための道具が入っています (リポジトリの外で使います)。プラグインは Rust で書きます (速さと軽さのため。AI に書かせる前提なので、作者の言語の好みより実行時の速さを取りました)。インターフェースの全部は `PLUGIN_SPEC.md` (`rust\crates\tmi-plugin-tools\PLUGIN_SPEC.md`。`plugin new` がプラグインのディレクトリにも書き出します) にあり、それだけを AI に渡して書かせられるように書いてあります。
 
 ```powershell
 tmiki plugin new kra --writer               # kra\ に Rust の雛形 (作り物の「tmiki sample」形式を読む)
 cd kra
 tmiki plugin doctor                         # cargo と wasm32-wasip2 が入っているか
 tmiki plugin build                          # component (target\tmi-plugin\kra.wasm) と開発用プラグインを作る
-tmiki plugin test                           # PLUGINS.md 7.1 の検査を全部 (失敗を全部挙げて 1 で終わる)
+tmiki plugin test                           # プラグインの検査を全部 (失敗を全部挙げて 1 で終わる)
 tmiki plugin test --native                  # 同じコードの開発用プラグインが component と同じ答えを返すか
 tmiki plugin test --update                  # tests\corpus\*.expect.json を書く (以後は記録の変化を見張る)
 tmiki plugin test --fuzz 10000              # 壊したファイルでも tmiki が落ちないか

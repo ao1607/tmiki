@@ -285,7 +285,7 @@ pub fn import_plugin(
     warns: &mut Warnings,
 ) -> Result<ImportedFile, ImportError> {
     if reader.builtin() {
-        return Err(decline("a built-in reader has no importer record (PLUGINS.md Q3)").into());
+        return Err(decline("a built-in reader has no importer record").into());
     }
     let head = &source[..source.len().min(reader.info().probe_bytes as usize)];
     if reader.probe(name, head, source.len() as u64) == Confidence::No {

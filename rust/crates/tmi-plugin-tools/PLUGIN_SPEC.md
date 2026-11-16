@@ -29,8 +29,7 @@ tmiki add foo.kra
 ### 1.1 WIT（`wit/tmi-format.wit` と同じもの）
 
 ```wit
-// tmi:format 0.1.0 (experimental). PLUGINS.md section 2.1 is the design this
-// file follows; where the two differ, PLUGINS.md "P1 の結果" says why.
+// tmi:format 0.1.0 (experimental).
 package tmi:format@0.1.0;
 
 /// Plain values the plugin returns. The host checks them, then decodes and
@@ -47,7 +46,7 @@ interface types {
   }
 
   /// A transform of a byte string, applied in the order listed. Each name has
-  /// one fixed meaning (PLUGINS.md 3.3).
+  /// one fixed meaning.
   variant codec {
     zlib,                     // RFC 1950 (adler32 is checked)
     deflate,                  // RFC 1951, raw
@@ -199,7 +198,7 @@ interface source {
   }
 }
 
-/// Host helpers. Each output is fixed by name (PLUGINS.md 3.3).
+/// Host helpers. Each output is fixed by name.
 interface codecs {
   use types.{bytes, codec, encoded-image};
   record image-header {
@@ -272,7 +271,7 @@ interface edit {
   }
   enum zlib-kernel { zlib-v131 }               // same as tmi-clip/src/zlib.rs (CPython's zlib.compress); zlib 1.3.1
   variant encoding { raw, zlib(tuple<zlib-kernel, s8>), deflate(tuple<zlib-kernel, s8>) }
-  variant image-encoding { png-v1, jpeg-keep-v1(list<u8>), webp-v1(u8) }   // jpeg-keep: the original DQT and subsampling (RUST_MIGRATION 2b-6)
+  variant image-encoding { png-v1, jpeg-keep-v1(list<u8>), webp-v1(u8) }   // jpeg-keep: the original DQT and subsampling
   encode-tile: func(px: borrow<pixels>, x: u32, y: u32, w: u32, h: u32,
                     layout: layout, steps: list<encoding>) -> result<blob, string>;
   encode-image: func(px: borrow<pixels>, enc: image-encoding) -> result<blob, string>;
@@ -297,7 +296,7 @@ interface writer {
     new-pixels: option<u32>,
     props: list<prop-change>,
   }
-  /// The host joins the pieces in order into the new file (PLUGINS.md 2.2):
+  /// The host joins the pieces in order into the new file:
   /// `source` copies bytes of the file being written, `bytes` are the
   /// plugin's own, `blob` is what `edit` encoded (each blob at most once).
   variant piece { source(span), bytes(list<u8>), blob(blob) }
@@ -666,7 +665,7 @@ command = "target/debug/ora-dev"
 ```toml
 [package]
 name = "tmi-plugin-ora"
-description = "OpenRaster reader and writer for tmiki (PLUGINS.md 7.3): written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
+description = "OpenRaster reader and writer for tmiki: written on tmi-plugin-sdk, a wasm32-wasip2 component and (feature dev) the same code as a development plugin; the reader's core is also a plain native library"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -697,7 +696,7 @@ tmi-plugin-sdk = { path = "../sdk" }
 reader の本体：`info`・`probe`・`read_structure`（`stack.xml` を roxmltree で読み、木を下から上へたどる）・`read_layer`。
 
 ```rust
-//! An OpenRaster (`.ora`) reader and writer for tmiki (PLUGINS.md 7.3),
+//! An OpenRaster (`.ora`) reader and writer for tmiki,
 //! written once on `tmi-plugin-sdk` ([`plugin::Ora`]) and built three ways:
 //!
 //! - for `wasm32-wasip2` it is a component of the `tmi:format/format-plugin`
@@ -706,8 +705,7 @@ reader の本体：`info`・`probe`・`read_structure`（`stack.xml` を roxmltr
 //!   plugin (`src/bin/ora-dev.rs`, `tmiki plugin dev`: the SDK's RPC);
 //! - natively the reader's core is also a plain library: `tmi-plugin-host`'s
 //!   `OraNative` wraps it in a `tmi_format::FormatReader` in-process and its
-//!   tests compare the records and bytes the three give (PLUGINS.md P5, P7,
-//!   6.4 item 4).
+//!   tests compare the records and bytes the three give.
 //!
 //! The core sees the file only through [`Host`] (the WIT `source-file` and
 //! `codecs.transform`) and returns [`model`]'s plain values, which each
@@ -715,8 +713,8 @@ reader の本体：`info`・`probe`・`read_structure`（`stack.xml` を roxmltr
 //!
 //! What it reads: a zip (stored or deflate members, no zip64) holding
 //! `stack.xml`, the layers' PNGs and optionally `mergedimage.png`.
-//! `stack.xml` is parsed inside the plugin (roxmltree; PLUGINS.md 3.3 asks
-//! for the XML to be the component's own). Every layer is `ready` (the host
+//! `stack.xml` is parsed inside the plugin (roxmltree; the XML is
+//! the component's own). Every layer is `ready` (the host
 //! decodes the PNGs), except in a file whose `<image>` carries the test-only
 //! attribute `tmi-test-defer="1"`: its raster layers are `deferred`, so the
 //! host's `read-layer` path runs on the same files (the records must not
@@ -1607,7 +1605,7 @@ impl Plugin for Ora {
 writer：zip を作り直す write-plan。
 
 ```rust
-//! `writer.write-layers` (PLUGINS.md 7.3's write flow): the zip rebuilt
+//! `writer.write-layers`: the zip rebuilt
 //! around new layer PNGs.
 //!
 //! - Every member the edit does not touch is copied as it is

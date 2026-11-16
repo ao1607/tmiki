@@ -167,12 +167,11 @@ tmiki merge try-purple -m "紫案を採用"
 
 ## ヘルプ
 
-[利用の手引き](docs/MANUAL.md) · [プラグインの作り方](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [不具合を報告](https://github.com/ao1607/tmiki/issues/new) ·
-[設計の記録](PLUGINS.md)
+[利用の手引き](docs/MANUAL.md) · [プラグインの作り方](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [不具合を報告](https://github.com/ao1607/tmiki/issues/new)
 
 ## このプロジェクトについて
 
-**名称：** tmiki（ツミキ、積み木）は、レイヤーとコミットを積み上げるツールです。開発中はtmiと呼ばれていたため、Rustクレート、リポジトリ構成（`.tmi/`）、`TMI_*`変数、および設計メモには今も旧名称が使われています。
+**名称：** tmiki（ツミキ、積み木）は、レイヤーとコミットを積み上げるツールです。開発中はtmiと呼ばれていたため、Rustのクレート、リポジトリの構成（`.tmi/`）、`TMI_*`の変数には今も旧名が使われています。
 
 **商標：** tmikiは個人の独立したプロジェクトであり、CLIP STUDIO PAINT、メディバンペイント、FireAlpacaの開発元とは提携していません。各名称はそれぞれの所有者の商標です。
 
@@ -180,4 +179,3 @@ tmiki merge try-purple -m "紫案を採用"
 
 tmikiは、[MIT License](LICENSE-MIT)または[Apache License 2.0](LICENSE-APACHE)のいずれかを選択して利用できます。`rust/vendor/libsqlite3-sys`は同梱したサードパーティ製のコードで、それぞれのライセンスに従います。
 
-<sub>AIツール向け：<a href="CLAUDE.md">開発の手引き（英語）</a></sub>

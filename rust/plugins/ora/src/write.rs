@@ -1,4 +1,4 @@
-//! `writer.write-layers` (PLUGINS.md 7.3's write flow): the zip rebuilt
+//! `writer.write-layers`: the zip rebuilt
 //! around new layer PNGs.
 //!
 //! - Every member the edit does not touch is copied as it is

@@ -1,4 +1,4 @@
-//! An OpenRaster (`.ora`) reader and writer for tmiki (PLUGINS.md 7.3),
+//! An OpenRaster (`.ora`) reader and writer for tmiki,
 //! written once on `tmi-plugin-sdk` ([`plugin::Ora`]) and built three ways:
 //!
 //! - for `wasm32-wasip2` it is a component of the `tmi:format/format-plugin`
@@ -7,8 +7,7 @@
 //!   plugin (`src/bin/ora-dev.rs`, `tmiki plugin dev`: the SDK's RPC);
 //! - natively the reader's core is also a plain library: `tmi-plugin-host`'s
 //!   `OraNative` wraps it in a `tmi_format::FormatReader` in-process and its
-//!   tests compare the records and bytes the three give (PLUGINS.md P5, P7,
-//!   6.4 item 4).
+//!   tests compare the records and bytes the three give.
 //!
 //! The core sees the file only through [`Host`] (the WIT `source-file` and
 //! `codecs.transform`) and returns [`model`]'s plain values, which each
@@ -16,8 +15,8 @@
 //!
 //! What it reads: a zip (stored or deflate members, no zip64) holding
 //! `stack.xml`, the layers' PNGs and optionally `mergedimage.png`.
-//! `stack.xml` is parsed inside the plugin (roxmltree; PLUGINS.md 3.3 asks
-//! for the XML to be the component's own). Every layer is `ready` (the host
+//! `stack.xml` is parsed inside the plugin (roxmltree; the XML is
+//! the component's own). Every layer is `ready` (the host
 //! decodes the PNGs), except in a file whose `<image>` carries the test-only
 //! attribute `tmi-test-defer="1"`: its raster layers are `deferred`, so the
 //! host's `read-layer` path runs on the same files (the records must not
