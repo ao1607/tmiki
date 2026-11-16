@@ -21,6 +21,34 @@ fn status_cmd() -> Command {
         .arg(flag("short", Some('s'), Some("short")))
         .arg(flag("branch", Some('b'), Some("branch")))
         .arg(opt_const("porcelain", None, Some("porcelain"), "v1"))
+        .arg(flag("json", None, Some("json")))
+}
+
+/// `status --json`: the branch, HEAD, a merge in progress and every change
+/// of the long format.
+fn status_json(repo: &Repo, out: &mut Out) -> CmdResult {
+    use crate::cmd_log::{json_object, json_opt_str, print_json};
+    let merge_head = repo.pending_merge_head()?;
+    let conflicts = if merge_head.is_some() { repo.pending_conflict_paths()? } else { Vec::new() };
+    let mut warns = Warnings::default();
+    let items = status_items(repo, true, &mut warns, None);
+    for line in warns.lines {
+        out.eprintln(line);
+    }
+    let changes = items?
+        .into_iter()
+        .filter(|i| !conflicts.contains(&i.path))
+        .map(|i| json_object(vec![("path", Value::Str(i.path)), ("state", Value::Str(i.state.into())), ("detail", Value::Str(i.detail))]))
+        .collect();
+    let doc = json_object(vec![
+        ("branch", json_opt_str(repo.current_branch()?)),
+        ("head", json_opt_str(repo.current_commit()?)),
+        ("merge_head", json_opt_str(merge_head)),
+        ("conflicts", Value::Array(conflicts.into_iter().map(Value::Str).collect())),
+        ("changes", Value::Array(changes)),
+    ]);
+    print_json(out, &doc);
+    Ok(0)
 }
 
 pub fn status(argv: &[String], out: &mut Out) -> CmdResult {
@@ -29,6 +57,9 @@ pub fn status(argv: &[String], out: &mut Out) -> CmdResult {
     args::check_choice(&porcelain, &["v1"])?;
     let short = args::get_flag(&m, "short") || porcelain.is_some();
     let repo = Repo::open()?;
+    if args::get_flag(&m, "json") {
+        return status_json(&repo, out);
+    }
     let branch = repo.current_branch()?.unwrap_or_else(|| "(detached)".into());
     let head = repo.current_commit()?;
     if short {

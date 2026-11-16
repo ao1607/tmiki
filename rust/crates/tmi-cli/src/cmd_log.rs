@@ -504,8 +504,25 @@ fn collect_commits(repo: &Repo, starts: &[String], first_parent: bool) -> Result
     Ok(items.into_iter().map(|(o, c, _)| (o, c)).collect())
 }
 
+/// `--json`: one indented document, ASCII only (no pipe encoding, cp932
+/// included, can damage it).
+pub fn print_json(out: &mut Out, value: &Value) {
+    let opts = tmi_store::json::DumpOptions { indent: Some(2), item_separator: ",", ..tmi_store::json::DumpOptions::DEFAULT };
+    out.println(tmi_store::json::dumps(value, &opts));
+}
+
+/// An object of `--json` output, keys in the order given.
+pub fn json_object(fields: Vec<(&str, Value)>) -> Value {
+    Value::Object(fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
+}
+
+pub fn json_opt_str(text: Option<String>) -> Value {
+    text.map(Value::Str).unwrap_or(Value::Null)
+}
+
 fn log_cmd() -> Command {
     Command::new("log")
+        .arg(flag("json", None, Some("json")))
         .arg(flag("oneline", None, Some("oneline")))
         .arg(flag("graph", None, Some("graph")))
         .arg(opt_const("decorate", None, Some("decorate"), "short"))
@@ -698,6 +715,21 @@ pub fn log(argv: &[String], out: &mut Out) -> CmdResult {
     }
     if args::get_flag(&m, "reverse") {
         commits.reverse();
+    }
+    if args::get_flag(&m, "json") {
+        // the commit records as stored, each with its id first
+        let list = commits
+            .into_iter()
+            .map(|(oid, commit)| {
+                let mut fields = vec![("commit".to_string(), Value::Str(oid))];
+                if let Value::Object(map) = commit {
+                    fields.extend(map);
+                }
+                Value::Object(fields.into_iter().collect())
+            })
+            .collect();
+        print_json(out, &Value::Array(list));
+        return Ok(0);
     }
     if commits.is_empty() {
         out.println("no commits");

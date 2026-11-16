@@ -36,11 +36,12 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &[], nargs: "?", choices: None, int: false, required: false, name: "path", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--bare"], nargs: "0", choices: None, int: false, required: false, name: "--bare", help: false, empty_ok: true, conflicts: &[] },
     ] },
-    PParser { path: &["status"], prog: "tmiki status", usage: "usage: tmiki status [-h] [-s] [-b] [--porcelain [{v1}]]\n", actions: &[
+    PParser { path: &["status"], prog: "tmiki status", usage: "usage: tmiki status [-h] [-s] [-b] [--porcelain [{v1}]] [--json]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-s", "--short"], nargs: "0", choices: None, int: false, required: false, name: "-s/--short", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-b", "--branch"], nargs: "0", choices: None, int: false, required: false, name: "-b/--branch", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--porcelain"], nargs: "?", choices: Some(&["v1"]), int: false, required: false, name: "--porcelain", help: false, empty_ok: true, conflicts: &[] },
+        PAct { opts: &["--json"], nargs: "0", choices: None, int: false, required: false, name: "--json", help: false, empty_ok: true, conflicts: &[] },
     ] },
     PParser { path: &["add"], prog: "tmiki add", usage: "usage: tmiki add [-h] [-A] [-u] [-f] [--renormalize] [specs ...]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
@@ -57,7 +58,7 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &["--amend"], nargs: "0", choices: None, int: false, required: false, name: "--amend", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--allow-empty"], nargs: "0", choices: None, int: false, required: false, name: "--allow-empty", help: false, empty_ok: true, conflicts: &[] },
     ] },
-    PParser { path: &["log"], prog: "tmiki log", usage: "usage: tmiki log [-h] [--oneline] [--graph] [--decorate [{short,full,no}]]\n                 [--no-decorate] [--all] [--first-parent] [-n MAX_COUNT]\n                 [--skip SKIP] [--reverse] [--author AUTHOR] [--grep GREP]\n                 [--since SINCE] [--until UNTIL] [--merges] [--no-merges]\n                 [--parents] [--abbrev ABBREV] [--abbrev-commit]\n                 [--no-abbrev-commit] [--format FORMAT_] [--pretty PRETTY]\n                 [--date {iso,local,short}] [--stat] [--name-only]\n                 [--name-status]\n                 [revs_or_paths ...]\n", actions: &[
+    PParser { path: &["log"], prog: "tmiki log", usage: "usage: tmiki log [-h] [--oneline] [--graph] [--decorate [{short,full,no}]]\n                 [--no-decorate] [--all] [--first-parent] [-n MAX_COUNT]\n                 [--skip SKIP] [--reverse] [--author AUTHOR] [--grep GREP]\n                 [--since SINCE] [--until UNTIL] [--merges] [--no-merges]\n                 [--parents] [--abbrev ABBREV] [--abbrev-commit]\n                 [--no-abbrev-commit] [--format FORMAT_] [--pretty PRETTY]\n                 [--date {iso,local,short}] [--stat] [--name-only]\n                 [--name-status] [--json]\n                 [revs_or_paths ...]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--oneline"], nargs: "0", choices: None, int: false, required: false, name: "--oneline", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--graph"], nargs: "0", choices: None, int: false, required: false, name: "--graph", help: false, empty_ok: true, conflicts: &[] },
@@ -85,6 +86,7 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &["--name-only"], nargs: "0", choices: None, int: false, required: false, name: "--name-only", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--name-status"], nargs: "0", choices: None, int: false, required: false, name: "--name-status", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "*", choices: None, int: false, required: false, name: "revs_or_paths", help: false, empty_ok: true, conflicts: &[] },
+        PAct { opts: &["--json"], nargs: "0", choices: None, int: false, required: false, name: "--json", help: false, empty_ok: true, conflicts: &[] },
     ] },
     PParser { path: &["show"], prog: "tmiki show", usage: "usage: tmiki show [-h] [--stat] [--name-only] [--name-status]\n                  [--abbrev ABBREV] [--date {iso,local,short}] [--thumbnail]\n                  [-o OUTPUT]\n                  [object]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
@@ -111,12 +113,13 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &["--out"], nargs: "1", choices: None, int: false, required: false, name: "--out", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "*", choices: None, int: false, required: false, name: "rev-or-path", help: false, empty_ok: true, conflicts: &[] },
     ] },
-    PParser { path: &["ls-layers"], prog: "tmiki ls-layers", usage: "usage: tmiki ls-layers [-h] path [rev]\n", actions: &[
+    PParser { path: &["ls-layers"], prog: "tmiki ls-layers", usage: "usage: tmiki ls-layers [-h] [--json] path [rev]\n", actions: &[
+        PAct { opts: &["--json"], nargs: "0", choices: None, int: false, required: false, name: "--json", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "1", choices: None, int: false, required: true, name: "path", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "?", choices: None, int: false, required: false, name: "rev", help: false, empty_ok: true, conflicts: &[] },
     ] },
-    PParser { path: &["branch"], prog: "tmiki branch", usage: "usage: tmiki branch [-h] [-a] [-r] [-v] [--merged [MERGED]]\n                    [--no-merged [NO_MERGED]] [--contains [CONTAINS]]\n                    [--sort SORT] [-d] [-D]\n                    [name] [start]\n", actions: &[
+    PParser { path: &["branch"], prog: "tmiki branch", usage: "usage: tmiki branch [-h] [-a] [-r] [-v] [--merged [MERGED]]\n                    [--no-merged [NO_MERGED]] [--contains [CONTAINS]]\n                    [--sort SORT] [-d] [-D] [--json]\n                    [name] [start]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-a", "--all"], nargs: "0", choices: None, int: false, required: false, name: "-a/--all", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-r", "--remotes"], nargs: "0", choices: None, int: false, required: false, name: "-r/--remotes", help: false, empty_ok: true, conflicts: &[] },
@@ -127,6 +130,7 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &["--sort"], nargs: "1", choices: None, int: false, required: false, name: "--sort", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-d", "--delete"], nargs: "0", choices: None, int: false, required: false, name: "-d/--delete", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-D"], nargs: "0", choices: None, int: false, required: false, name: "-D", help: false, empty_ok: true, conflicts: &[] },
+        PAct { opts: &["--json"], nargs: "0", choices: None, int: false, required: false, name: "--json", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "?", choices: None, int: false, required: false, name: "name", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "?", choices: None, int: false, required: false, name: "start", help: false, empty_ok: true, conflicts: &[] },
     ] },
@@ -172,7 +176,7 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &[], nargs: "1", choices: None, int: false, required: true, name: "source", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "1", choices: None, int: false, required: true, name: "dest", help: false, empty_ok: true, conflicts: &[] },
     ] },
-    PParser { path: &["tag"], prog: "tmiki tag", usage: "usage: tmiki tag [-h] [-a] [-m MESSAGE] [-d] [-l] [-n [LINES]]\n                 [--points-at POINTS_AT] [--contains CONTAINS] [--sort SORT]\n                 [name] [rev]\n", actions: &[
+    PParser { path: &["tag"], prog: "tmiki tag", usage: "usage: tmiki tag [-h] [-a] [-m MESSAGE] [-d] [-l] [-n [LINES]]\n                 [--points-at POINTS_AT] [--contains CONTAINS] [--sort SORT]\n                 [--json]\n                 [name] [rev]\n", actions: &[
         PAct { opts: &["-h", "--help"], nargs: "0", choices: None, int: false, required: false, name: "-h/--help", help: true, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-a", "--annotated"], nargs: "0", choices: None, int: false, required: false, name: "-a/--annotated", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-m", "--message"], nargs: "1", choices: None, int: false, required: false, name: "-m/--message", help: false, empty_ok: true, conflicts: &[] },
@@ -180,6 +184,7 @@ pub const PARSERS: &[PParser] = &[
         PAct { opts: &["-l", "--list"], nargs: "0", choices: None, int: false, required: false, name: "-l/--list", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["-n"], nargs: "?", choices: None, int: false, required: false, name: "-n", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--points-at"], nargs: "1", choices: None, int: false, required: false, name: "--points-at", help: false, empty_ok: true, conflicts: &[] },
+        PAct { opts: &["--json"], nargs: "0", choices: None, int: false, required: false, name: "--json", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--contains"], nargs: "1", choices: None, int: false, required: false, name: "--contains", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &["--sort"], nargs: "1", choices: None, int: false, required: false, name: "--sort", help: false, empty_ok: true, conflicts: &[] },
         PAct { opts: &[], nargs: "?", choices: None, int: false, required: false, name: "name", help: false, empty_ok: true, conflicts: &[] },

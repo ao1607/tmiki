@@ -345,21 +345,21 @@ tmiki config --unset diff.retain
 | コマンド | 用途 |
 | --- | --- |
 | `init [path] [--bare]` | リポジトリ作成 |
-| `status [-s] [-b] [--porcelain]` | 作業ツリーの状態 |
+| `status [-s] [-b] [--porcelain] [--json]` | 作業ツリーの状態 |
 | `add [-A\|-u] [--renormalize] <spec>...` | ステージ (`path` または `path:layer`。`--renormalize` は変わっていなくても取り込み直す) |
 | `commit -m <msg> [-a] [--amend] [--allow-empty]` | コミット (合成サムネ自動添付) |
-| `log [--graph] [--oneline] [--decorate] [--all] [-n N] [--stat\|--name-only\|--name-status] [rev]` | 履歴表示 |
+| `log [--graph] [--oneline] [--decorate] [--all] [-n N] [--stat\|--name-only\|--name-status] [--json] [rev]` | 履歴表示 |
 | `show [--stat\|--name-only\|--name-status] [--thumbnail [-o FILE]] [rev\|rev:path]` | コミット / ファイルの表示、サムネの取り出し |
 | `diff [--staged] [rev [rev]] [--side-by-side\|--overlay\|--per-layer\|--html] [--name-only\|--name-status\|--stat] [--out DIR] [--no-open] [[--] path...]` | ビジュアル diff / 要約 |
-| `ls-layers <path> [rev]` | レイヤー一覧 (ID・フォルダパス) |
-| `branch [-a\|-r] [-v] [--merged REV] [--contains REV] [-d\|-D] [name [start]]` | ブランチ作成 / 一覧 / 削除 |
+| `ls-layers [--json] <path> [rev]` | レイヤー一覧 (ID・フォルダパス) |
+| `branch [-a\|-r] [-v] [--merged REV] [--contains REV] [-d\|-D] [--json] [name [start]]` | ブランチ作成 / 一覧 / 削除 |
 | `switch [-c] <name> [start] [--discard]` | ブランチ切替 |
 | `checkout [-b NAME] [--discard] <branch\|rev\|path>` | 切替 / 復元 (Git 互換) |
 | `restore [-S\|--staged] [--source REV] [--in-place\|--output FILE] [--ours\|--theirs] <spec>...` | 復元 (`--staged` でステージ取り消し、`--ours/--theirs` で衝突解消) |
 | `reset [--soft\|--mixed\|--hard] [rev] [-- path...]` | HEAD / インデックスを戻す |
 | `rm [-f] [--cached] <path>...` / `mv <src> <dst>` | 削除 / 移動 |
 | `stash [push\|list\|apply\|pop\|drop\|clear]` | 作業の一時退避 (サブコマンドを省くと `push`) |
-| `tag [-l] [-nN] [--points-at REV] [-a] [-m MSG] [-d] [name [rev]]` | タグ作成 / 一覧 / 削除 |
+| `tag [-l] [-nN] [--points-at REV] [-a] [-m MSG] [-d] [--json] [name [rev]]` | タグ作成 / 一覧 / 削除 |
 | `remote [-v] [add\|remove\|rm] ...` | リモート管理 |
 | `fetch [--all] [remote]` | リモートから取得 |
 | `push [-f\|--force-with-lease] [--tags] [remote] [branch\|tag]` | プッシュ (`--tags` は全タグ) |

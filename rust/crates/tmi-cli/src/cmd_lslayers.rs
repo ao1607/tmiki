@@ -74,7 +74,10 @@ fn text_or_empty(v: Option<&Value>) -> Result<String> {
 }
 
 pub fn ls_layers(argv: &[String], out: &mut Out) -> CmdResult {
-    let cmd = Command::new("ls-layers").arg(positional("path", false)).arg(positional("rev", false));
+    let cmd = Command::new("ls-layers")
+        .arg(args::flag("json", None, Some("json")))
+        .arg(positional("path", false))
+        .arg(positional("rev", false));
     let m = args::parse(cmd, argv, &["path", "rev"])?;
     let Some(path) = args::get_str(&m, "path") else { return Err(fwd("ls-layers without a path")) };
     let rev = args::get_str(&m, "rev").filter(|r| !r.is_empty());
@@ -157,6 +160,21 @@ pub fn ls_layers(argv: &[String], out: &mut Out) -> CmdResult {
                 walk(&imported.layers, "", &mut layers);
             }
         }
+    }
+    if args::get_flag(&m, "json") {
+        let list = layers
+            .into_iter()
+            .map(|(layer, path_name)| {
+                let mut fields: Vec<(&str, Value)> = ["layer_id", "name", "kind", "visible", "opacity", "blend_mode"]
+                    .into_iter()
+                    .map(|key| (key, layer.get(key).cloned().unwrap_or(Value::Null)))
+                    .collect();
+                fields.push(("path", path_name));
+                crate::cmd_log::json_object(fields)
+            })
+            .collect();
+        crate::cmd_log::print_json(out, &Value::Array(list));
+        return Ok(0);
     }
     out.println(format!("{:14} {:10} {:5} {:>7}  {:12} path", "id", "kind", "shown", "opacity", "blend"));
     for (layer, path_name) in layers {

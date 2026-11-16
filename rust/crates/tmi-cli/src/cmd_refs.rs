@@ -2,7 +2,7 @@
 //! `cmd_tag`) and `tmiki remote [-v]`. Creating and deleting is Python's.
 
 use crate::args::{self, flag, opt, opt_const, positional};
-use crate::cmd_log::{fwd, str_field};
+use crate::cmd_log::{fwd, json_object, json_opt_str, print_json, str_field};
 use crate::out::Out;
 use crate::CmdResult;
 use clap::{ArgAction, Command};
@@ -22,6 +22,7 @@ fn branch_cmd() -> Command {
         .arg(opt("sort", None, Some("sort")))
         .arg(flag("delete", Some('d'), Some("delete")))
         .arg(flag("force_delete", Some('D'), None))
+        .arg(flag("json", None, Some("json")))
         .arg(positional("name", false))
         .arg(positional("start", false))
 }
@@ -119,6 +120,16 @@ pub fn branch(argv: &[String], out: &mut Out) -> CmdResult {
     } else {
         filtered.sort_by(|a, b| a.0.cmp(&b.0));
     }
+    if args::get_flag(&m, "json") {
+        let list = filtered
+            .into_iter()
+            .map(|(name, commit, is_current)| {
+                json_object(vec![("name", Value::Str(name)), ("commit", Value::Str(commit)), ("current", Value::Bool(is_current))])
+            })
+            .collect();
+        print_json(out, &Value::Array(list));
+        return Ok(0);
+    }
     if filtered.is_empty() {
         out.println(format!("* {DEFAULT_BRANCH} (no commits)"));
         return Ok(0);
@@ -148,6 +159,7 @@ fn tag_cmd() -> Command {
         .arg(opt("points_at", None, Some("points-at")))
         .arg(opt("contains", None, Some("contains")))
         .arg(opt("sort", None, Some("sort")))
+        .arg(flag("json", None, Some("json")))
         .arg(positional("name", false))
         .arg(positional("rev", false))
 }
@@ -211,7 +223,9 @@ pub fn tag(argv: &[String], out: &mut Out) -> CmdResult {
     }
     let points_at = args::get_str(&m, "points_at");
     let contains_arg = args::get_str(&m, "contains");
+    let json = args::get_flag(&m, "json");
     let listing = args::get_flag(&m, "list")
+        || json
         || name.as_deref().is_none_or(str::is_empty)
         || points_at.as_deref().is_some_and(|s| !s.is_empty())
         || contains_arg.as_deref().is_some_and(|s| !s.is_empty())
@@ -260,6 +274,16 @@ pub fn tag(argv: &[String], out: &mut Out) -> CmdResult {
             x.cmp(y)
         }
     });
+    if json {
+        // target: what the ref holds (a tag object for an annotated tag)
+        let mut list = Vec::new();
+        for (tag_name, target, _) in rows {
+            let commit = json_opt_str(repo.object_as_commit(Some(&target))?);
+            list.push(json_object(vec![("name", Value::Str(tag_name)), ("target", Value::Str(target)), ("commit", commit)]));
+        }
+        print_json(out, &Value::Array(list));
+        return Ok(0);
+    }
     for (tag_name, target, _) in rows {
         let short = prefix_chars(&target, 12);
         let tag_name = tmi_repo::textsafe::escape(&tag_name, false);
