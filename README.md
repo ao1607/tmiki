@@ -113,7 +113,7 @@ Rustで書いたWebAssemblyプラグインで、対応形式を増やせます�
 tmiki --version
 ```
 
-<sub>ファイル: `tmiki-0.1.2-windows-x64.zip`（`tmiki.exe`とライセンス）</sub>
+<sub>ファイル: `tmiki-0.1.3-windows-x64.zip`（`tmiki.exe`とライセンス）</sub>
 
 macOSおよびLinux向けのビルド済みパッケージはまだ用意されていません。そちらはソースからビルドしてください。
 
