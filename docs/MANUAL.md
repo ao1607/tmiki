@@ -230,7 +230,7 @@ tmiki clone https://example.com/api/<user>/<repo>
 tmiki pull origin main
 ```
 
-トークンは環境変数 `TMIHUB_TOKEN` → グローバル設定 `tmihub.token` の順に解決されます。トークンは `tmihub.host`（環境変数なら `TMIHUB_HOST`）に書いたホスト（`host` または `host:port`）にだけ送られます。ホストを書いていないときや、リモートが別のホストのときは送りません。HTTPS 越しの強制 push (非 fast-forward) は tmihub 側が拒否します (409) — 先に `tmiki pull` してマージしてください。
+トークンは環境変数 `TMIHUB_TOKEN` → グローバル設定 `tmihub.token` の順に解決されます。トークンは、`tmihub.host` (環境変数では `TMIHUB_HOST`) に書いたホスト (`host` または `host:port`) にだけ送られます。ホストが書かれていない場合や、リモートが別のホストにある場合は、トークンは送られません。HTTPS 越しの強制 push (非 fast-forward) は tmihub 側が拒否します (409) — 先に `tmiki pull` してマージしてください。
 
 ## 復旧 (reflog / gc)
 
@@ -261,8 +261,8 @@ tmiki hook list                  # 登録されているフックを表示
 tmiki hook run post-commit       # 手動で発火
 ```
 
-- フックが動くのは、`tmiki init` か `tmiki clone` でこの PC に作ったリポジトリだけです。展開したフォルダなどに最初から入っていた `.tmi` のフックは、端末なら最初に一度だけ「Run this repository's hooks?」と聞き、`y` と答えると以後は聞きません (記録は `trust.json`。フックを書き換えても聞き直しません)。端末でなければ動かさず、`pre-*` のフックならコマンドを止めます。スクリプトから動かすときは、そのコマンドだけ `TMI_HOOKS_TRUST=allow` を付けます。
-- `pre-commit` と `post-commit` には、コミットメッセージが `TMI_COMMIT_MSG_FILE` (そのままの内容を書いたファイル `.tmi/COMMIT_EDITMSG` のパス) と `TMI_COMMIT_MSG` (改行とタブ以外の制御文字を除いたもの) で渡ります。`commit --amend` では pull してきた他人のメッセージのこともあるので、信用できない文字列として扱ってください。特に `.bat` で `%TMI_COMMIT_MSG%` をそのまま展開すると、`&` などがコマンドとして解釈されます。内容が要るときは `TMI_COMMIT_MSG_FILE` を読んでください。
+- フックが実行されるのは、この PC で `tmiki init` または `tmiki clone` を使って作ったリポジトリだけです。展開したフォルダなど、フォルダに最初から入っていた `.tmi` のフックについては、tmiki が端末で一度だけ「Run this repository's hooks?」と尋ねます。`y` と答えると、以後は尋ねません (答えは `trust.json` に記録され、フックを書き換えても尋ね直しません)。端末がない場合はフックを実行せず、`pre-*` のフックならコマンドを止めます。スクリプトから実行するときは、そのコマンドにだけ `TMI_HOOKS_TRUST=allow` を付けてください。
+- `pre-commit` と `post-commit` は、`TMI_COMMIT_MSG_FILE` (メッセージをそのまま書いたファイル `.tmi/COMMIT_EDITMSG` のパス) と `TMI_COMMIT_MSG` (改行とタブ以外の制御文字を除いたもの) でコミットメッセージを受け取ります。`commit --amend` では、プルしてきた他人のメッセージのこともあるため、信頼できない文字列として扱ってください。特に、`.bat` ファイルで `%TMI_COMMIT_MSG%` をそのまま展開すると、`&` などの文字がコマンドとして実行されてしまいます。内容が必要なときは、`TMI_COMMIT_MSG_FILE` を読んでください。
 
 時間/操作トリガの自動コミットなどはコア外で、プラグイン (`tmi.plugins`) として後付けする想定です。
 
@@ -299,7 +299,7 @@ tmiki merge side                                     # 両側で別のレイヤ�
 *.ora          on-error=binary      # プラグインが読めないファイルを不透明として残す (既定は refuse: add を止める)
 ```
 
-- プラグインはファイルシステム・ネットワーク・時刻に触れないサンドボックスで動きます。既定 (`plugin.trust=notice`) では、リポジトリと component の組ごとに最初の一度だけ「this repository uses format plugin ora 0.2.0 (sha256 ...). It runs in a sandbox: ...」と知らせ、止めはしません。`tmiki config --global plugin.trust prompt` で最初に聞く (端末で `[y/N]` と聞き、答えるまで進捗の表示は止まります)、`deny` で使わない、`allow` で何も言わない (書き戻しも許す) にできます。記録は `trust.json` (ユーザーの config と同じフォルダ) に残ります。リポジトリの config (`.tmi/config`) にも書けますが、ユーザーの config より厳しくすることしかできません (`allow` はユーザーの config にも `allow` があるときだけ効きます)。`plugin.fuel`・`plugin.timeout`・`plugin.maxMemory` も同じで、リポジトリの config は上限を下げることしかできません。
+- プラグインはファイルシステム・ネットワーク・時刻に触れないサンドボックスで動きます。既定 (`plugin.trust=notice`) では、リポジトリと component の組ごとに最初の一度だけ「this repository uses format plugin ora 0.2.0 (sha256 ...). It runs in a sandbox: ...」と知らせ、止めはしません。`tmiki config --global plugin.trust prompt` で最初に聞く (端末で `[y/N]` と聞き、答えるまで進捗の表示は止まります)、`deny` で使わない、`allow` で何も言わない (書き戻しも許す) にできます。記録は `trust.json` (ユーザーの config と同じフォルダ) に残ります。リポジトリの config (`.tmi/config`) に書くこともできますが、その場合はユーザーの config より厳しくすることしかできません (`allow` は、ユーザーの config にも `allow` と書いてある場合にだけ適用されます)。`plugin.fuel`・`plugin.timeout`・`plugin.maxMemory` も同様で、リポジトリの config では上限を下げることしかできません。
 - プラグインでファイルを書き戻す前 (マージの書き戻し・`restore --in-place`・`restore --ours/--theirs <file>:<layer>`・`add <file>:<layer>`) には、リポジトリと component ごとに一度、許可を求めます。端末でなければ何も変えずに止まり、`tmiki plugin trust <id>` (か `plugin.trust=allow`) で許すよう案内します。
 - 書き戻した結果は、同じプラグインで読み直して確かめます: 書き換えたレイヤーが新しい画素になっていて、ほかのレイヤーの画素とプロパティ・キャンバスが元のままであること。通らなければ作業ファイルは置き換えません (マージならそのファイルは衝突になります)。未保存の変更がある作業ファイルは、置き換える前に退避します (`tmiki recover --files`)。
 - 書き戻しのできないプラグインで、両側が変えたファイルのマージは、ファイル全体の衝突になります。どちらがどのレイヤーを変えたかを示すので、`tmiki restore --ours <file>` か `--theirs <file>` で片方を選び、もう片方の変更は描画アプリで入れ直してください (両方の版とレイヤーの PNG は `.tmi/conflicts/<file>/` にあります)。
