@@ -168,7 +168,7 @@ After a merge or a roll-back rewrites a file, saving it from a drawing app that 
 ## Help
 
 [Guide (Japanese)](docs/MANUAL.md) · [Writing a plugin](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [Report a bug](https://github.com/ao1607/tmiki/issues/new) ·
-[File format notes](research/) · [Design notes](PLUGINS.md)
+[Design notes](PLUGINS.md)
 
 ## About
 

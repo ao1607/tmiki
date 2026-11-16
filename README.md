@@ -168,7 +168,7 @@ tmiki merge try-purple -m "紫案を採用"
 ## ヘルプ
 
 [利用の手引き](docs/MANUAL.md) · [プラグインの作り方](rust/crates/tmi-plugin-tools/PLUGIN_SPEC.md) · [不具合を報告](https://github.com/ao1607/tmiki/issues/new) ·
-[ファイル形式の調査メモ](research/) · [設計の記録](PLUGINS.md)
+[設計の記録](PLUGINS.md)
 
 ## このプロジェクトについて
 
