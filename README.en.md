@@ -113,7 +113,7 @@ Unzip it, and put `tmiki.exe` in a folder on your PATH or run it where it is. It
 tmiki --version
 ```
 
-<sub>File: `tmiki-0.1.1-windows-x64.zip` (`tmiki.exe` and the licenses)</sub>
+<sub>File: `tmiki-0.1.2-windows-x64.zip` (`tmiki.exe` and the licenses)</sub>
 
 There are no ready-made builds for macOS and Linux yet. Build from source there.
 

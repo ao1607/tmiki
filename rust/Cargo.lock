@@ -1743,7 +1743,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "clap",
  "indexmap",
@@ -1764,7 +1764,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-clip"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "libc",
@@ -1778,7 +1778,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-codec"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "mtpng",
  "rayon",
@@ -1787,7 +1787,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-diffmerge"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "indexmap",
@@ -1807,7 +1807,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-format"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "rayon",
@@ -1824,7 +1824,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-image"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "libc",
@@ -1838,7 +1838,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-import"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "libc",
@@ -1855,14 +1855,14 @@ dependencies = [
 
 [[package]]
 name = "tmi-numpy"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "rayon",
 ]
 
 [[package]]
 name = "tmi-pillow"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "rayon",
 ]
@@ -1873,7 +1873,7 @@ version = "0.1.0"
 
 [[package]]
 name = "tmi-plugin-host"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "rand",
@@ -1910,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-plugin-tools"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "rayon",
  "tmi-codec",
@@ -1924,7 +1924,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-render"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "rayon",
  "sha2 0.11.0",
@@ -1935,7 +1935,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-repo"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "indexmap",
  "libc",
@@ -1950,7 +1950,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-store"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "indexmap",
@@ -1963,7 +1963,7 @@ dependencies = [
 
 [[package]]
 name = "tmi-transport"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "indexmap",
